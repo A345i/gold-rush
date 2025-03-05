@@ -1,95 +1,240 @@
 <!DOCTYPE html>
-<html>
+<html lang="ru">
 <head>
-    <title>Telegram Mini-App Data</title>
+    <meta charset="UTF-8">
+    <title>Золотая Лихорадка</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
     <style>
-        body { font-family: sans-serif; }
-        .data-section { margin-bottom: 20px; border: 1px solid #ccc; padding: 10px; }
-        .data-section h2 { margin-top: 0; }
-        .data-item { margin-bottom: 5px; word-wrap: break-word; }
-        .data-key { font-weight: bold; }
-        .json-output { background-color: #f0f0f0; padding: 10px; border-radius: 5px; overflow-x: auto; }
+        html, body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            font-family: Arial, sans-serif;
+            color: #fff;
+        }
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .panel {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 1rem;
+            border-radius: 8px;
+            backdrop-filter: blur(5px);
+            pointer-events: auto;
+            max-width: 320px;
+        }
+        .panel h3 {
+            margin: 0 0 8px 0;
+            font-size: 1.2rem;
+        }
+        .panel button {
+            width: 100%;
+            padding: 12px;
+            margin-top: 8px;
+            border: none;
+            border-radius: 6px;
+            background-color: #ffd700;
+            color: #000;
+            cursor: pointer;
+            font-size: 1rem;
+            min-height: 44px;
+        }
+        .panel button:disabled {
+            background-color: #999;
+            cursor: not-allowed;
+        }
+        .gold-text {
+            color: #FFD700;
+        }
+        
+        @media (max-width: 768px) {
+            #ui {
+                top: 5px;
+                left: 5px;
+                right: 5px;
+                gap: 8px;
+            }
+            .panel {
+                padding: 0.8rem;
+                border-radius: 6px;
+            }
+            .panel h3 {
+                font-size: 1rem;
+            }
+            .panel button {
+                padding: 10px;
+                font-size: 0.9rem;
+            }
+            #statsPanel p {
+                font-size: 0.9rem;
+                margin: 4px 0;
+            }
+        }
+        @media (max-width: 480px) {
+            .panel {
+                max-width: none;
+            }
+            #upgradePanel button {
+                font-size: 0.8rem;
+            }
+            #statsPanel {
+                display: none;
+            }
+        }
     </style>
-
-	<script src="https://telegram.org/js/telegram-web-app.js?56"></script>
-
 </head>
 <body>
-
-    <h1>Telegram Mini-App Data</h1>
-
-    <div id="data-output">
-        <div class="data-section">
-            <h2>WebApp Object</h2>
-            <div id="webapp-data" class="json-output"></div>
+    <canvas id="renderCanvas"></canvas>
+    <div id="ui">
+        <div class="panel" id="goldPanel">
+            <h3>Золото: <span id="goldCount" class="gold-text">0</span> 🪙</h3>
         </div>
-
-        <div class="data-section">
-            <h2>WebApp Init Data (Unsafe)</h2>
-            <div id="initdata-unsafe-data" class="json-output"></div>
+        <div class="panel" id="upgradePanel">
+            <h3>Апгрейды</h3>
+            <button id="upgradeClick">Увеличить золото за клик (Стоимость: <span id="upgradeClickCost">10</span>)</button>
+            <button id="upgradeAuto">Автоматическая добыча (Стоимость: <span id="upgradeAutoCost">50</span>)</button>
         </div>
-
-        <div class="data-section">
-            <h2>WebApp Init Data (Recommended - Validate on Server!)</h2>
-            <div id="initdata-data" class="json-output"></div>
+        <div class="panel" id="statsPanel">
+            <h3>Статистика</h3>
+            <p>Клики: <span id="clickCount">0</span></p>
+            <p>🪙 в секунду: <span id="goldPerSecond">0</span></p>
         </div>
-
-        <div class="data-section">
-            <h2>WebApp Theme Parameters</h2>
-            <div id="themeparams-data" class="json-output"></div>
-        </div>
-
-        <div class="data-section">
-            <h2>WebApp Version & Platform</h2>
-            <div id="version-platform-data">
-                <div class="data-item"><span class="data-key">Version:</span> <span id="webapp-version"></span></div>
-                <div class="data-item"><span class="data-key">Platform:</span> <span id="webapp-platform"></span></div>
-            </div>
-        </div>
-
-        <div class="data-section">
-            <h2>WebApp Viewport Heights</h2>
-            <div id="viewport-heights-data">
-                <div class="data-item"><span class="data-key">Viewport Height:</span> <span id="viewport-height"></span></div>
-                <div class="data-item"><span class="data-key">Viewport Stable Height:</span> <span id="viewport-stable-height"></span></div>
-                <div class="data-item"><span class="data-key">Is Expanded:</span> <span id="is-expanded"></span></div>
-            </div>
-        </div>
-
-        </div>
+    </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            if (window.Telegram && Telegram.WebApp) {
-                const webApp = Telegram.WebApp;
+        let gold = 0;
+        let goldPerClick = 1;
+        let goldPerSecond = 0;
+        let clickCount = 0;
+        let upgradeClickCost = 10;
+        let upgradeAutoCost = 50;
+        let autoUpgradeCount = 0;
 
-                document.getElementById('webapp-data').textContent = JSON.stringify(webApp, null, 2);
-                document.getElementById('initdata-unsafe-data').textContent = JSON.stringify(webApp.initDataUnsafe, null, 2);
-                document.getElementById('initdata-data').textContent = JSON.stringify(webApp.initData, null, 2);
-                document.getElementById('themeparams-data').textContent = JSON.stringify(webApp.themeParams, null, 2);
-                document.getElementById('webapp-version').textContent = webApp.version;
-                document.getElementById('webapp-platform').textContent = webApp.platform;
-                document.getElementById('viewport-height').textContent = webApp.viewportHeight;
-                document.getElementById('viewport-stable-height').textContent = webApp.viewportStableHeight;
-                document.getElementById('is-expanded').textContent = webApp.isExpanded;
+        function updateUI() {
+            document.getElementById('goldCount').innerText = gold;
+            document.getElementById('clickCount').innerText = clickCount;
+            document.getElementById('goldPerSecond').innerText = goldPerSecond;
+            document.getElementById('upgradeClickCost').innerText = upgradeClickCost;
+            document.getElementById('upgradeAutoCost').innerText = upgradeAutoCost;
+            document.getElementById('upgradeClick').disabled = gold < upgradeClickCost;
+            document.getElementById('upgradeAuto').disabled = gold < upgradeAutoCost;
+        }
 
+        setInterval(() => {
+            gold += goldPerSecond;
+            updateUI();
+        }, 1000);
 
-                console.log("WebApp Object:", webApp); // For debugging in browser console
-                console.log("WebApp Init Data (Unsafe):", webApp.initDataUnsafe);
-                console.log("WebApp Init Data (Recommended):", webApp.initData);
-                console.log("WebApp Theme Params:", webApp.themeParams);
-                console.log("WebApp Version:", webApp.version);
-                console.log("WebApp Platform:", webApp.platform);
-                console.log("Viewport Height:", webApp.viewportHeight);
-                console.log("Viewport Stable Height:", webApp.viewportStableHeight);
-                console.log("Is Expanded:", webApp.isExpanded);
+        const canvas = document.getElementById('renderCanvas');
+        const engine = new BABYLON.Engine(canvas, true);
+        const scene = new BABYLON.Scene(engine);
+        let camera;
 
+        function setupCamera() {
+            if (camera) camera.dispose();
+            
+            const isMobile = window.innerWidth < 768;
+            camera = new BABYLON.ArcRotateCamera(
+                "Camera", 
+                -Math.PI / 2, 
+                Math.PI / 2.5, 
+                isMobile ? 8 : 5, 
+                BABYLON.Vector3.Zero(), 
+                scene
+            );
+            
+            camera.attachControl(canvas, true);
+            camera.lowerRadiusLimit = isMobile ? 6 : 4;
+            camera.upperRadiusLimit = isMobile ? 10 : 6;
+            camera.wheelDeltaPercentage = 0.01;
+            camera.pinchDeltaPercentage = 0.01;
+        }
 
-            } else {
-                document.getElementById('data-output').textContent = "Telegram WebApp API is not available. Open this page in Telegram Mini-App.";
+        const light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(1, 1, 0), scene);
+        light.intensity = 0.7;
+
+        const goldOre = BABYLON.MeshBuilder.CreateSphere("goldOre", {diameter: 2}, scene);
+        const goldMaterial = new BABYLON.StandardMaterial("goldMat", scene);
+        goldMaterial.diffuseColor = new BABYLON.Color3(1, 0.843, 0);
+        goldOre.material = goldMaterial;
+
+        function animateClick(mesh) {
+            const anim = new BABYLON.Animation("clickAnim", "scaling", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+            const keys = [
+                { frame: 0, value: new BABYLON.Vector3(1,1,1) },
+                { frame: 10, value: new BABYLON.Vector3(1.2,1.2,1.2) },
+                { frame: 20, value: new BABYLON.Vector3(1,1,1) }
+            ];
+            anim.setKeys(keys);
+            mesh.animations = [];
+            mesh.animations.push(anim);
+            scene.beginAnimation(mesh, 0, 20, false);
+        }
+
+        scene.onPointerObservable.add((pointerInfo) => {
+            if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERPICK) {
+                const mesh = pointerInfo.pickInfo.pickedMesh;
+                if (mesh && mesh.name === "goldOre") {
+                    gold += goldPerClick;
+                    clickCount += 1;
+                    animateClick(mesh);
+                    updateUI();
+                }
             }
         });
-    </script>
 
+        document.getElementById('upgradeClick').addEventListener('click', () => {
+            if (gold >= upgradeClickCost) {
+                gold -= upgradeClickCost;
+                goldPerClick += 1;
+                upgradeClickCost = Math.floor(upgradeClickCost * 1.5);
+                updateUI();
+            }
+        });
+
+        document.getElementById('upgradeAuto').addEventListener('click', () => {
+            if (gold >= upgradeAutoCost) {
+                gold -= upgradeAutoCost;
+                goldPerSecond += 1;
+                autoUpgradeCount += 1;
+                upgradeAutoCost = Math.floor(upgradeAutoCost * 1.7);
+                updateUI();
+            }
+        });
+
+        let lastWidth = window.innerWidth;
+        window.addEventListener('resize', () => {
+            engine.resize();
+            if (Math.abs(lastWidth - window.innerWidth) > 50) {
+                lastWidth = window.innerWidth;
+                setupCamera();
+            }
+        });
+
+        setupCamera();
+        engine.runRenderLoop(() => {
+            scene.render();
+        });
+
+        updateUI();
+    </script>
 </body>
 </html>
