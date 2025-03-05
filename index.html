@@ -2,13 +2,13 @@
 <html>
 <head><title>Simple Mini-App Test</title></head>
 <body>
-    <h1>Simple Test</h1>
+    <h1>Это мой тестовый Mini-App!</h1> <!- - Уникальный текст -->
     <div id="test-output"></div>
     <script>
-        if (window.Telegram && Telegram.WebApp) {
-            document.getElementById('test-output').textContent = "Telegram WebApp API is working!";
+        if (typeof Telegram !== 'undefined' && typeof Telegram.WebApp !== 'undefined') {
+            document.getElementById('test-output').textContent = "WebApp API is working!";
         } else {
-            document.getElementById('test-output').textContent = "Telegram WebApp API is NOT working!";
+            document.getElementById('test-output').textContent = "WebApp API is NOT working!";
         }
     </script>
 </body>
