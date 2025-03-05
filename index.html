@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Золотая Лихорадка</title>
+    <!-- Babylon.js CDN -->
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+    <style>
+        html, body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            font-family: Arial, sans-serif;
+            color: #fff;
+        }
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .panel {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .panel h3 {
+            margin: 0 0 5px 0;
+            font-size: 16px;
+        }
+        .panel button {
+            width: 100%;
+            padding: 5px;
+            margin-top: 5px;
+            border: none;
+            border-radius: 3px;
+            background-color: #ffd700;
+            color: #000;
+            cursor: pointer;
+        }
+        .panel button:disabled {
+            background-color: #999;
+            cursor: not-allowed;
+        }
+
+	.gold-text {
+  		color: #FFD700;
+	}
+
+	.gold-background {
+  		background-color: #D4AF37;
+	}
+    </style>
+</head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <div id="ui">
+        <div class="panel" id="goldPanel">
+            <h3>Золото: <span id="goldCount" class="gold-text">0</span> 🪙</h3>
+        </div>
+        <div class="panel" id="upgradePanel">
+            <h3>Апгрейды</h3>
+            <button id="upgradeClick">Увеличить золото за клик (Стоимость: <span id="upgradeClickCost">10</span>)</button>
+            <button id="upgradeAuto">Автоматическая добыча (Стоимость: <span id="upgradeAutoCost">50</span>)</button>
+        </div>
+        <div class="panel" id="statsPanel">
+            <h3>Статистика</h3>
+            <p>Клики: <span id="clickCount">0</span></p>
+            <p>🪙 в секунду: <span id="goldPerSecond">0</span></p>
+        </div>
+    </div>
+
+    <script>
+        // Инициализация переменных игры
+        let gold = 0;
+        let goldPerClick = 1;
+        let goldPerSecond = 0;
+        let clickCount = 0;
+        let upgradeClickCost = 10;
+        let upgradeAutoCost = 50;
+        let autoUpgradeCount = 0;
+
+        // Обновление UI
+        function updateUI() {
+            document.getElementById('goldCount').innerText = gold;
+            document.getElementById('clickCount').innerText = clickCount;
+            document.getElementById('goldPerSecond').innerText = goldPerSecond;
+            document.getElementById('upgradeClickCost').innerText = upgradeClickCost;
+            document.getElementById('upgradeAutoCost').innerText = upgradeAutoCost;
+
+            // Включение/отключение кнопок апгрейдов
+            document.getElementById('upgradeClick').disabled = gold < upgradeClickCost;
+            document.getElementById('upgradeAuto').disabled = gold < upgradeAutoCost;
+        }
+
+        // Логика автоматической добычи золота
+        setInterval(() => {
+            gold += goldPerSecond;
+            updateUI();
+        }, 1000);
+
+        // Настройка сцены Babylon.js
+        const canvas = document.getElementById('renderCanvas');
+        const engine = new BABYLON.Engine(canvas, true);
+        const scene = new BABYLON.Scene(engine);
+
+        // Камера
+        const camera = new BABYLON.ArcRotateCamera("Camera", -Math.PI / 2, Math.PI / 2.5, 5, BABYLON.Vector3.Zero(), scene);
+        camera.attachControl(canvas, true);
+
+        // Свет
+        const light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(1, 1, 0), scene);
+        light.intensity = 0.7;
+
+        // Золотая жила
+        const goldOre = BABYLON.MeshBuilder.CreateSphere("goldOre", {diameter: 2}, scene);
+        const goldMaterial = new BABYLON.StandardMaterial("goldMat", scene);
+        goldMaterial.diffuseColor = new BABYLON.Color3(1, 0.843, 0); // Золотой цвет
+        goldOre.material = goldMaterial;
+
+        // Анимация при клике
+        function animateClick(mesh) {
+            const anim = new BABYLON.Animation("clickAnim", "scaling", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
+            const keys = [
+                { frame: 0, value: new BABYLON.Vector3(1,1,1) },
+                { frame: 10, value: new BABYLON.Vector3(1.2,1.2,1.2) },
+                { frame: 20, value: new BABYLON.Vector3(1,1,1) }
+            ];
+            anim.setKeys(keys);
+            mesh.animations = [];
+            mesh.animations.push(anim);
+            scene.beginAnimation(mesh, 0, 20, false);
+        }
+
+        // Обработка кликов
+        goldOre.actionManager = new BABYLON.ActionManager(scene);
+        goldOre.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPickTrigger, function () {
+            gold += goldPerClick;
+            clickCount += 1;
+            animateClick(goldOre);
+            updateUI();
+        }));
+
+        // Обработка кнопок апгрейдов
+        document.getElementById('upgradeClick').addEventListener('click', () => {
+            if (gold >= upgradeClickCost) {
+                gold -= upgradeClickCost;
+                goldPerClick += 1;
+                upgradeClickCost = Math.floor(upgradeClickCost * 1.5);
+                updateUI();
+            }
+        });
+
+        document.getElementById('upgradeAuto').addEventListener('click', () => {
+            if (gold >= upgradeAutoCost) {
+                gold -= upgradeAutoCost;
+                goldPerSecond += 1;
+                autoUpgradeCount += 1;
+                upgradeAutoCost = Math.floor(upgradeAutoCost * 1.7);
+                updateUI();
+            }
+        });
+
+        // Создание GUI с Babylon.js (альтернативный интерфейс, если нужно)
+        /*
+        const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
+        // Добавьте элементы GUI здесь, если хотите использовать Babylon GUI вместо HTML
+        */
+
+        // Рендеринг сцены
+        engine.runRenderLoop(() => {
+            scene.render();
+        });
+
+        // Обработка изменения размеров окна
+        window.addEventListener('resize', () => {
+            engine.resize();
+        });
+
+        // Инициализация UI при загрузке
+        updateUI();
+    </script>
+</body>
+</html>
