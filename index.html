@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Золотая Лихорадка</title>
-    <!-- Babylon.js CDN -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <script src="https://cdn.babylonjs.com/babylon.js"></script>
     <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
     <style>
@@ -26,42 +26,79 @@
             position: absolute;
             top: 10px;
             left: 10px;
+            right: 10px;
             z-index: 1;
             display: flex;
             flex-direction: column;
             gap: 10px;
+            pointer-events: none;
         }
         .panel {
             background: rgba(0, 0, 0, 0.5);
-            padding: 10px;
-            border-radius: 5px;
+            padding: 1rem;
+            border-radius: 8px;
+            backdrop-filter: blur(5px);
+            pointer-events: auto;
+            max-width: 320px;
         }
         .panel h3 {
-            margin: 0 0 5px 0;
-            font-size: 16px;
+            margin: 0 0 8px 0;
+            font-size: 1.2rem;
         }
         .panel button {
             width: 100%;
-            padding: 5px;
-            margin-top: 5px;
+            padding: 12px;
+            margin-top: 8px;
             border: none;
-            border-radius: 3px;
+            border-radius: 6px;
             background-color: #ffd700;
             color: #000;
             cursor: pointer;
+            font-size: 1rem;
+            min-height: 44px;
         }
         .panel button:disabled {
             background-color: #999;
             cursor: not-allowed;
         }
-
-	.gold-text {
-  		color: #FFD700;
-	}
-
-	.gold-background {
-  		background-color: #D4AF37;
-	}
+        .gold-text {
+            color: #FFD700;
+        }
+        
+        @media (max-width: 768px) {
+            #ui {
+                top: 5px;
+                left: 5px;
+                right: 5px;
+                gap: 8px;
+            }
+            .panel {
+                padding: 0.8rem;
+                border-radius: 6px;
+            }
+            .panel h3 {
+                font-size: 1rem;
+            }
+            .panel button {
+                padding: 10px;
+                font-size: 0.9rem;
+            }
+            #statsPanel p {
+                font-size: 0.9rem;
+                margin: 4px 0;
+            }
+        }
+        @media (max-width: 480px) {
+            .panel {
+                max-width: none;
+            }
+            #upgradePanel button {
+                font-size: 0.8rem;
+            }
+            #statsPanel {
+                display: none;
+            }
+        }
     </style>
 </head>
 <body>
@@ -83,7 +120,6 @@
     </div>
 
     <script>
-        // Инициализация переменных игры
         let gold = 0;
         let goldPerClick = 1;
         let goldPerSecond = 0;
@@ -92,45 +128,54 @@
         let upgradeAutoCost = 50;
         let autoUpgradeCount = 0;
 
-        // Обновление UI
         function updateUI() {
             document.getElementById('goldCount').innerText = gold;
             document.getElementById('clickCount').innerText = clickCount;
             document.getElementById('goldPerSecond').innerText = goldPerSecond;
             document.getElementById('upgradeClickCost').innerText = upgradeClickCost;
             document.getElementById('upgradeAutoCost').innerText = upgradeAutoCost;
-
-            // Включение/отключение кнопок апгрейдов
             document.getElementById('upgradeClick').disabled = gold < upgradeClickCost;
             document.getElementById('upgradeAuto').disabled = gold < upgradeAutoCost;
         }
 
-        // Логика автоматической добычи золота
         setInterval(() => {
             gold += goldPerSecond;
             updateUI();
         }, 1000);
 
-        // Настройка сцены Babylon.js
         const canvas = document.getElementById('renderCanvas');
         const engine = new BABYLON.Engine(canvas, true);
         const scene = new BABYLON.Scene(engine);
+        let camera;
 
-        // Камера
-        const camera = new BABYLON.ArcRotateCamera("Camera", -Math.PI / 2, Math.PI / 2.5, 5, BABYLON.Vector3.Zero(), scene);
-        camera.attachControl(canvas, true);
+        function setupCamera() {
+            if (camera) camera.dispose();
+            
+            const isMobile = window.innerWidth < 768;
+            camera = new BABYLON.ArcRotateCamera(
+                "Camera", 
+                -Math.PI / 2, 
+                Math.PI / 2.5, 
+                isMobile ? 8 : 5, 
+                BABYLON.Vector3.Zero(), 
+                scene
+            );
+            
+            camera.attachControl(canvas, true);
+            camera.lowerRadiusLimit = isMobile ? 6 : 4;
+            camera.upperRadiusLimit = isMobile ? 10 : 6;
+            camera.wheelDeltaPercentage = 0.01;
+            camera.pinchDeltaPercentage = 0.01;
+        }
 
-        // Свет
         const light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(1, 1, 0), scene);
         light.intensity = 0.7;
 
-        // Золотая жила
         const goldOre = BABYLON.MeshBuilder.CreateSphere("goldOre", {diameter: 2}, scene);
         const goldMaterial = new BABYLON.StandardMaterial("goldMat", scene);
-        goldMaterial.diffuseColor = new BABYLON.Color3(1, 0.843, 0); // Золотой цвет
+        goldMaterial.diffuseColor = new BABYLON.Color3(1, 0.843, 0);
         goldOre.material = goldMaterial;
 
-        // Анимация при клике
         function animateClick(mesh) {
             const anim = new BABYLON.Animation("clickAnim", "scaling", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
             const keys = [
@@ -144,16 +189,18 @@
             scene.beginAnimation(mesh, 0, 20, false);
         }
 
-        // Обработка кликов
-        goldOre.actionManager = new BABYLON.ActionManager(scene);
-        goldOre.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnPickTrigger, function () {
-            gold += goldPerClick;
-            clickCount += 1;
-            animateClick(goldOre);
-            updateUI();
-        }));
+        scene.onPointerObservable.add((pointerInfo) => {
+            if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERPICK) {
+                const mesh = pointerInfo.pickInfo.pickedMesh;
+                if (mesh && mesh.name === "goldOre") {
+                    gold += goldPerClick;
+                    clickCount += 1;
+                    animateClick(mesh);
+                    updateUI();
+                }
+            }
+        });
 
-        // Обработка кнопок апгрейдов
         document.getElementById('upgradeClick').addEventListener('click', () => {
             if (gold >= upgradeClickCost) {
                 gold -= upgradeClickCost;
@@ -173,23 +220,20 @@
             }
         });
 
-        // Создание GUI с Babylon.js (альтернативный интерфейс, если нужно)
-        /*
-        const advancedTexture = BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
-        // Добавьте элементы GUI здесь, если хотите использовать Babylon GUI вместо HTML
-        */
+        let lastWidth = window.innerWidth;
+        window.addEventListener('resize', () => {
+            engine.resize();
+            if (Math.abs(lastWidth - window.innerWidth) > 50) {
+                lastWidth = window.innerWidth;
+                setupCamera();
+            }
+        });
 
-        // Рендеринг сцены
+        setupCamera();
         engine.runRenderLoop(() => {
             scene.render();
         });
 
-        // Обработка изменения размеров окна
-        window.addEventListener('resize', () => {
-            engine.resize();
-        });
-
-        // Инициализация UI при загрузке
         updateUI();
     </script>
 </body>
