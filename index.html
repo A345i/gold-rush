@@ -2,13 +2,17 @@
 <html>
 <head><title>Simple Mini-App Test</title></head>
 <body>
-    <h1>Это мой тестовый Mini-App!</h1> <!- - Уникальный текст -->
+    <h1>Это мой тестовый Mini-App!</h1>
     <div id="test-output"></div>
     <script>
-        if (typeof Telegram !== 'undefined' && typeof Telegram.WebApp !== 'undefined') {
-            document.getElementById('test-output').textContent = "WebApp API is working!";
+        if (typeof Telegram !== 'undefined') { // Проверяем, существует ли Telegram
+            if (typeof Telegram.WebApp !== 'undefined') {
+                document.getElementById('test-output').textContent = "WebApp API is working!";
+            } else {
+                document.getElementById('test-output').textContent = "Telegram object exists, but WebApp API is NOT working!";
+            }
         } else {
-            document.getElementById('test-output').textContent = "WebApp API is NOT working!";
+            document.getElementById('test-output').textContent = "Telegram object is NOT defined. Are you in Mini-App?";
         }
     </script>
 </body>
