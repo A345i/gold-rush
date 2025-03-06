@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Собери Слово</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+
+        #gameContainer {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            background: #f0f0f0;
+            display: none;
+        }
+
+        .letter {
+            position: absolute;
+            cursor: pointer;
+            font-size: 36px;
+            font-weight: bold;
+            color: #333;
+            transition: transform 0.2s, opacity 0.3s;
+            user-select: none;
+        }
+
+        .letter[data-char="␣"] {
+            color: blue;
+            font-size: 42px;
+        }
+
+        .letter[data-char="<"] {
+            color: #2ecc71;
+            font-weight: 900;
+        }
+
+        .bonus {
+            color: red !important;
+        }
+
+        .letter:hover:not(.stopped) {
+            transform: scale(1.2);
+        }
+
+        .letter.stopped {
+            cursor: default;
+            opacity: 0.4;
+            filter: grayscale(100%);
+        }
+
+        #inputString {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 32px;
+            padding: 15px 30px;
+            background: rgba(255, 255, 255, 0.9);
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            white-space: nowrap;
+        }
+
+        @media (max-width: 600px) {
+            .letter {
+                font-size: 30px;
+            }
+            .letter[data-char="␣"] {
+                font-size: 28px;
+            }
+            #inputString {
+                font-size: 24px;
+                padding: 10px 20px;
+            }
+        }
+
+        #startScreen {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.2);
+            z-index: 1000;
+        }
+
+        #phraseInput {
+            font-size: 18px;
+            padding: 10px;
+            margin: 15px 0;
+            width: 300px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+        }
+
+        #startButton {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        #startButton:hover {
+            background: #45a049;
+        }
+
+        #controlsPanel {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            z-index: 1000;
+            display: none;
+        }
+
+        .control {
+            margin: 10px 0;
+        }
+
+        .control label {
+            display: block;
+            font-size: 14px;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .control input[type="range"] {
+            width: 200px;
+        }
+
+        .value-display {
+            display: inline-block;
+            width: 50px;
+            text-align: right;
+            margin-left: 10px;
+            font-size: 14px;
+        }
+
+        #targetPhraseWrapper {
+        position: fixed;
+        top: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 1001;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+
+    #targetPhrase {
+        font-size: 24px;
+        color: #2c3e50;
+        background: rgba(255, 255, 255, 0.9);
+        padding: 10px 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+        #checkButton {
+            margin-left: 0px;
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            font-size: 14px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        #checkButton:hover {
+            background: #2980b9;
+        }
+
+        #winScreen {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 0 25px rgba(0,0,0,0.2);
+            z-index: 2000;
+            display: none;
+        }
+
+        #winScreen h2 {
+            color: #27ae60;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div id="targetPhraseWrapper" style="display: none;">
+        <div id="targetPhrase"></div>
+        <button id="checkButton">Проверить</button>
+    </div>
+    
+    <div id="winScreen">
+        <h2>🎉 Поздравляем! Вы выиграли! 🎉</h2>
+        <button id="restartButton" onclick="location.reload()">Новая игра</button>
+    </div>
+
+    <div id="startScreen">
+        <h2>Введите слово или фразу</h2>
+        <input type="text" id="phraseInput" placeholder="Например: ПРИВЕТ МИР">
+        <br>
+        <button id="startButton">Начать игру</button>
+    </div>
+    
+    <div id="gameContainer"></div>
+    <div id="controlsPanel">
+        <div class="control">
+            <label>Гравитация: <span id="gravityValue" class="value-display">1.3</span></label>
+            <input type="range" id="gravitySlider" min="0.1" max="2" step="0.01" value="1.3">
+        </div>
+        <div class="control">
+            <label>Сопротивление: <span id="airResistanceValue" class="value-display">0.15</span></label>
+            <input type="range" id="airResistanceSlider" min="0.1" max="1" step="0.01" value="0.15">
+        </div>
+    </div>
+    <div id="inputString"></div>
+
+    <script>
+        let currentGame = null;
+
+        class Game {
+            constructor(targetPhrase) {
+                this.originalPhrase = targetPhrase;
+                this.targetPhrase = targetPhrase.toUpperCase().replace(/ /g, '␣');
+                this.letters = [];
+                this.bonuses = [];
+                this.inputString = '';
+                this.animationFrameId = null;
+                
+                this.gameContainer = document.getElementById('gameContainer');
+                this.inputDisplay = document.getElementById('inputString');
+                document.getElementById('targetPhrase').textContent = this.originalPhrase;
+                
+                this.gravity = parseFloat(document.getElementById('gravitySlider').value);
+                this.airResistance = parseFloat(document.getElementById('airResistanceSlider').value);
+                this.isBonusActive = false;
+                this.bonusTimer = null;
+                
+                this.characterWeights = this.calculateCharacterWeights();
+                this.init();
+            }
+
+            calculateCharacterWeights() {
+                const baseChars = 'АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯ␣␣␣␣␣<<<<'; 
+                let weightedChars = [...baseChars];
+                
+                if(this.targetPhrase) {
+                    [...this.targetPhrase].forEach(char => {
+                        weightedChars.push(char, char, char);
+                        if(char === '␣') {
+                            weightedChars.push('␣', '␣', '␣', '␣', '␣');
+                        }
+                    });
+                }
+                return weightedChars;
+            }
+
+            init() {
+		document.getElementById('targetPhraseWrapper').style.display = 'flex';
+    document.getElementById('startScreen').style.display = 'none';
+    document.getElementById('controlsPanel').style.display = 'block';
+    this.gameContainer.style.display = 'block';
+                
+                this.letterInterval = setInterval(() => this.spawnLetter(), 500);
+                this.bonusInterval = setInterval(() => this.spawnBonus(), 7000);
+                this.gameLoop();
+            }
+
+            spawnBonus() {
+                const bonusValue = Math.floor(Math.random() * 9) + 3;
+                const bonus = new Bonus(
+                    bonusValue,
+                    this.gameContainer,
+                    this,
+                    this.removeBonus.bind(this)
+                );
+                this.bonuses.push(bonus);
+            }
+
+            activateBonus(seconds) {
+                this.isBonusActive = true;
+                if(this.bonusTimer) clearTimeout(this.bonusTimer);
+                this.bonusTimer = setTimeout(() => {
+                    this.isBonusActive = false;
+                }, seconds * 1000);
+            }
+
+            spawnLetter() {
+                const char = this.characterWeights[
+                    Math.floor(Math.random() * this.characterWeights.length)
+                ];
+                
+                const letter = new Letter(
+                    char === '␣' ? ' ' : char,
+                    this.gameContainer,
+                    this,
+                    this.removeLetter.bind(this)
+                );
+                this.letters.push(letter);
+            }
+
+            gameLoop() {
+                this.letters.forEach(letter => {
+                    if (!letter.isStopped) {
+                        letter.update();
+                        this.checkCollisions(letter);
+                    }
+                });
+                
+                this.bonuses.forEach(bonus => {
+                    if (!bonus.isStopped) {
+                        bonus.update();
+                        this.checkCollisions(bonus);
+                    }
+                });
+                
+                this.animationFrameId = requestAnimationFrame(this.gameLoop.bind(this));
+            }
+
+            checkCollisions(element) {
+                const containerHeight = this.gameContainer.offsetHeight;
+                
+                if (element.y >= containerHeight - 40) {
+                    element.stop();
+                    return;
+                }
+
+                this.letters.concat(this.bonuses).forEach(other => {
+                    if (other !== element && other.isStopped) {
+                        const diffY = other.y - element.y;
+                        if (diffY < 35 && diffY > 0 &&
+                            Math.abs(other.x - element.x) < 25) {
+                            element.stop();
+                        }
+                    }
+                });
+            }
+
+            addToInput(char) {
+                if(char === '<') {
+                    this.inputString = this.inputString.slice(0, -1);
+                } else {
+                    this.inputString += char;
+                }
+                this.inputDisplay.textContent = this.inputString
+                    .replace(/␣/g, ' ')
+                    .replace(/</g, '');
+            }
+
+            removeLastChar() {
+                this.inputString = this.inputString.slice(0, -1);
+                this.inputDisplay.textContent = this.inputString;
+            }
+
+            removeLetter(letter) {
+                this.letters = this.letters.filter(l => l !== letter);
+            }
+
+            removeBonus(bonus) {
+                this.bonuses = this.bonuses.filter(b => b !== bonus);
+            }
+
+            checkWin() {
+                const currentInput = this.inputString.replace(/␣/g, ' ');
+                return currentInput === this.originalPhrase.toUpperCase();
+            }
+
+            showWinScreen() {
+                cancelAnimationFrame(this.animationFrameId);
+                clearInterval(this.letterInterval);
+                clearInterval(this.bonusInterval);
+                this.letters.forEach(letter => letter.element.remove());
+                this.bonuses.forEach(bonus => bonus.element.remove());
+                
+		document.getElementById('targetPhraseWrapper').style.display = 'none';
+                document.getElementById('winScreen').style.display = 'block';
+                document.getElementById('controlsPanel').style.display = 'none';
+                document.getElementById('checkButton').style.display = 'none';
+                document.getElementById('targetPhrase').style.display = 'none';
+            }
+        }
+
+        class Letter {
+            constructor(char, container, gameInstance, removeCallback) {
+                this.char = char;
+                this.originalChar = char;
+                this.element = document.createElement('div');
+                this.element.className = 'letter';
+                this.element.textContent = char === ' ' ? '␣' : char;
+                this.element.dataset.char = this.element.textContent;
+                this.container = container;
+                this.gameInstance = gameInstance;
+                this.removeCallback = removeCallback;
+                
+                this.x = Math.random() * (container.offsetWidth - 40);
+                this.y = -40;
+                this.vy = 0;
+                this.isStopped = false;
+
+                this.element.style.left = `${this.x}px`;
+                this.element.style.top = `${this.y}px`;
+                container.appendChild(this.element);
+
+                this.element.addEventListener('click', () => this.handleClick());
+            }
+
+            update() {
+                if (!this.isStopped) {
+                    this.vy = (this.vy + this.gameInstance.gravity) * this.gameInstance.airResistance;
+                    this.y += this.vy;
+                    
+                    if (this.vy > 5) this.vy = 5;
+                    
+                    this.element.style.top = `${this.y}px`;
+                }
+            }
+
+            stop() {
+                this.isStopped = true;
+                this.vy = 0;
+                this.element.classList.add('stopped');
+            }
+
+            handleClick() {
+                if (this.isStopped && !this.gameInstance.isBonusActive) return;
+                
+                this.removeCallback(this);
+                this.element.style.transition = 'all 0.3s';
+                this.element.style.transform = 'scale(1.5) rotate(360deg)';
+                this.element.style.opacity = '0';
+                
+                setTimeout(() => {
+                    this.element.remove();
+                    this.gameInstance.addToInput(this.originalChar);
+                }, 300);
+            }
+        }
+
+        class Bonus extends Letter {
+            constructor(value, container, gameInstance, removeCallback) {
+                super(value.toString(), container, gameInstance, removeCallback);
+                this.element.className = 'letter bonus';
+                this.value = value;
+            }
+
+            handleClick() {
+                this.removeCallback(this);
+                this.element.style.transition = 'all 0.3s';
+                this.element.style.transform = 'scale(1.5) rotate(360deg)';
+                this.element.style.opacity = '0';
+                
+                setTimeout(() => {
+                    this.element.remove();
+                    this.gameInstance.activateBonus(this.value);
+                }, 300);
+            }
+        }
+
+        document.getElementById('startButton').addEventListener('click', () => {
+            const phraseInput = document.getElementById('phraseInput').value;
+            if(currentGame) {
+                currentGame.showWinScreen();
+            }
+            currentGame = new Game(phraseInput);
+        });
+
+        document.getElementById('gravitySlider').addEventListener('input', function(e) {
+            const value = parseFloat(e.target.value).toFixed(2);
+            document.getElementById('gravityValue').textContent = value;
+            if(currentGame) currentGame.gravity = parseFloat(value);
+        });
+
+        document.getElementById('airResistanceSlider').addEventListener('input', function(e) {
+            const value = parseFloat(e.target.value).toFixed(2);
+            document.getElementById('airResistanceValue').textContent = value;
+            if(currentGame) currentGame.airResistance = parseFloat(value);
+        });
+
+        document.getElementById('checkButton').addEventListener('click', () => {
+            if(currentGame && currentGame.checkWin()) {
+                currentGame.showWinScreen();
+            } else {
+                alert('Пока не угадали! Продолжайте собирать фразу!');
+            }
+        });
+    </script>
+</body>
+</html>
