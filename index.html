@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
         body { margin: 0; overflow: hidden; background: #000; }
         canvas { display: block; }
@@ -10,19 +11,34 @@
             padding: 20px; 
             font-family: Arial; 
             user-select: none;
+            z-index: 1;
         }
         #target { 
-            font-size: 40px; 
+            font-size: 5vmin; 
             color: #ff0;
             text-shadow: 0 0 10px #ff0;
         }
         .life { color: #ff4444; }
+        .touch-indicator {
+            position: fixed;
+            width: 40px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            pointer-events: none;
+            transform: translate(-50%, -50%);
+            animation: touchEffect 0.3s;
+        }
+        @keyframes touchEffect {
+            0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(2); opacity: 0; }
+        }
     </style>
 </head>
 <body>
     <div id="ui">
         <div>Score: <span id="score">0</span></div>
-        <div>Lives: <span id="lives" class="life">❤❤❤</span></div>
+        <div>Lives: <span id="lives" class="life">❤❤❤❤❤❤❤❤❤</span></div>
         <div>Target: <span id="target">A</span></div>
     </div>
     <canvas id="canvas"></canvas>
@@ -33,9 +49,8 @@
         const gravity = 9.8 * 100;
         const density = 1;
 
-        // Game variables
         let score = 0;
-        let lives = 15;
+        let lives = 9;
         let targetChar = 'A';
         let correctCatches = 0;
         const scoreElement = document.getElementById('score');
@@ -45,14 +60,15 @@
         class Letter {
             constructor(char, x, y) {
                 this.char = char;
-                this.fontSize = Math.random() * 30 + 20;
+                this.fontSize = ('ontouchstart' in window) 
+                    ? Math.random() * 40 + 30 
+                    : Math.random() * 30 + 20;
                 this.x = x;
                 this.y = y - this.fontSize;
                 this.radius = this.fontSize * 0.4;
                 this.vx = 0;
                 this.vy = 0;
                 this.mass = Math.PI * this.radius ** 2 * density;
-                this.isTarget = char === targetChar;
             }
 
             draw() {
@@ -60,14 +76,14 @@
                 ctx.font = `${this.fontSize}px Arial`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText(this.char, this.x, this.y);
                 
-                // Glow effect for target
                 if(this.char === targetChar) {
                     ctx.shadowColor = '#ff0';
                     ctx.shadowBlur = 20;
                     ctx.fillText(this.char, this.x, this.y);
                     ctx.shadowBlur = 0;
+                } else {
+                    ctx.fillText(this.char, this.x, this.y);
                 }
             }
 
@@ -148,7 +164,6 @@
             canvas.height = window.innerHeight;
         }
 
-        // Game functions
         function generateNewTarget() {
             const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
             targetChar = chars[Math.floor(Math.random() * chars.length)];
@@ -176,19 +191,32 @@
             setTimeout(() => canvas.style.transform = '', 50);
         }
 
-        // Event listeners
-        window.addEventListener('resize', resize);
-        canvas.addEventListener('click', (e) => {
+        function createTouchEffect(x, y) {
+            const effect = document.createElement('div');
+            effect.className = 'touch-indicator';
+            effect.style.left = x + 'px';
+            effect.style.top = y + 'px';
+            document.body.appendChild(effect);
+            setTimeout(() => effect.remove(), 300);
+        }
+
+        function handleInput(clientX, clientY) {
             const rect = canvas.getBoundingClientRect();
-            const mouseX = e.clientX - rect.left;
-            const mouseY = e.clientY - rect.top;
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            
+            const mouseX = (clientX - rect.left) * scaleX;
+            const mouseY = (clientY - rect.top) * scaleY;
+
+            const hitRadiusMultiplier = ('ontouchstart' in window) ? 1.5 : 1;
 
             for (let i = letters.length - 1; i >= 0; i--) {
                 const letter = letters[i];
                 const dx = mouseX - letter.x;
                 const dy = mouseY - letter.y;
+                const hitRadius = letter.radius * hitRadiusMultiplier;
                 
-                if (Math.sqrt(dx*dx + dy*dy) < letter.radius) {
+                if (dx*dx + dy*dy < hitRadius*hitRadius) {
                     if (letter.char === targetChar) {
                         score += 100;
                         correctCatches++;
@@ -202,7 +230,22 @@
                     break;
                 }
             }
+        }
+
+        // Event listeners
+        window.addEventListener('resize', resize);
+        
+        canvas.addEventListener('click', (e) => {
+            createTouchEffect(e.clientX, e.clientY);
+            handleInput(e.clientX, e.clientY);
         });
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const touch = e.touches[0];
+            createTouchEffect(touch.clientX, touch.clientY);
+            handleInput(touch.clientX, touch.clientY);
+        }, { passive: false });
 
         // Initialize
         resize();
