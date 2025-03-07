@@ -1,240 +1,237 @@
 <!DOCTYPE html>
-<html lang="ru">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <title>Золотая Лихорадка</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <script src="https://cdn.babylonjs.com/babylon.js"></script>
-    <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
     <style>
-        html, body {
-            overflow: hidden;
-            width: 100%;
-            height: 100%;
-            margin: 0;
-            padding: 0;
-            background-color: #000;
-            font-family: Arial, sans-serif;
-            color: #fff;
+        body { margin: 0; overflow: hidden; background: #000; }
+        canvas { display: block; }
+        #ui { 
+            position: fixed; 
+            color: white; 
+            padding: 20px; 
+            font-family: Arial; 
+            user-select: none;
         }
-        #renderCanvas {
-            width: 100%;
-            height: 100%;
-            touch-action: none;
+        #target { 
+            font-size: 40px; 
+            color: #ff0;
+            text-shadow: 0 0 10px #ff0;
         }
-        #ui {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            right: 10px;
-            z-index: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            pointer-events: none;
-        }
-        .panel {
-            background: rgba(0, 0, 0, 0.5);
-            padding: 1rem;
-            border-radius: 8px;
-            backdrop-filter: blur(5px);
-            pointer-events: auto;
-            max-width: 320px;
-        }
-        .panel h3 {
-            margin: 0 0 8px 0;
-            font-size: 1.2rem;
-        }
-        .panel button {
-            width: 100%;
-            padding: 12px;
-            margin-top: 8px;
-            border: none;
-            border-radius: 6px;
-            background-color: #ffd700;
-            color: #000;
-            cursor: pointer;
-            font-size: 1rem;
-            min-height: 44px;
-        }
-        .panel button:disabled {
-            background-color: #999;
-            cursor: not-allowed;
-        }
-        .gold-text {
-            color: #FFD700;
-        }
-        
-        @media (max-width: 768px) {
-            #ui {
-                top: 5px;
-                left: 5px;
-                right: 5px;
-                gap: 8px;
-            }
-            .panel {
-                padding: 0.8rem;
-                border-radius: 6px;
-            }
-            .panel h3 {
-                font-size: 1rem;
-            }
-            .panel button {
-                padding: 10px;
-                font-size: 0.9rem;
-            }
-            #statsPanel p {
-                font-size: 0.9rem;
-                margin: 4px 0;
-            }
-        }
-        @media (max-width: 480px) {
-            .panel {
-                max-width: none;
-            }
-            #upgradePanel button {
-                font-size: 0.8rem;
-            }
-            #statsPanel {
-                display: none;
-            }
-        }
+        .life { color: #ff4444; }
     </style>
 </head>
 <body>
-    <canvas id="renderCanvas"></canvas>
     <div id="ui">
-        <div class="panel" id="goldPanel">
-            <h3>Защекоины: <span id="goldCount" class="gold-text">0</span> 🪙</h3>
-        </div>
-        <div class="panel" id="upgradePanel">
-            <h3>Апгрейды</h3>
-            <button id="upgradeClick">Увеличить кол-во защекоинов за клик (Стоимость: <span id="upgradeClickCost">10</span>)</button>
-            <button id="upgradeAuto">Автоматическая добыча (Стоимость: <span id="upgradeAutoCost">50</span>)</button>
-        </div>
-        <div class="panel" id="statsPanel">
-            <h3>Статистика</h3>
-            <p>Клики: <span id="clickCount">0</span></p>
-            <p>🪙 в секунду: <span id="goldPerSecond">0</span></p>
-        </div>
+        <div>Score: <span id="score">0</span></div>
+        <div>Lives: <span id="lives" class="life">❤❤❤</span></div>
+        <div>Target: <span id="target">A</span></div>
     </div>
-
+    <canvas id="canvas"></canvas>
     <script>
-        let gold = 0;
-        let goldPerClick = 1;
-        let goldPerSecond = 0;
-        let clickCount = 0;
-        let upgradeClickCost = 10;
-        let upgradeAutoCost = 50;
-        let autoUpgradeCount = 0;
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const letters = [];
+        const gravity = 9.8 * 100;
+        const density = 1;
+
+        // Game variables
+        let score = 0;
+        let lives = 15;
+        let targetChar = 'A';
+        let correctCatches = 0;
+        const scoreElement = document.getElementById('score');
+        const livesElement = document.getElementById('lives');
+        const targetElement = document.getElementById('target');
+
+        class Letter {
+            constructor(char, x, y) {
+                this.char = char;
+                this.fontSize = Math.random() * 30 + 20;
+                this.x = x;
+                this.y = y - this.fontSize;
+                this.radius = this.fontSize * 0.4;
+                this.vx = 0;
+                this.vy = 0;
+                this.mass = Math.PI * this.radius ** 2 * density;
+                this.isTarget = char === targetChar;
+            }
+
+            draw() {
+                ctx.fillStyle = this.char === targetChar ? '#ff0' : '#fff';
+                ctx.font = `${this.fontSize}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.char, this.x, this.y);
+                
+                // Glow effect for target
+                if(this.char === targetChar) {
+                    ctx.shadowColor = '#ff0';
+                    ctx.shadowBlur = 20;
+                    ctx.fillText(this.char, this.x, this.y);
+                    ctx.shadowBlur = 0;
+                }
+            }
+
+            update(deltaTime) {
+                this.vy += gravity * (deltaTime / 1000);
+                this.x += this.vx * (deltaTime / 1000);
+                this.y += this.vy * (deltaTime / 1000);
+                this.handleBoundaries();
+            }
+
+            handleBoundaries() {
+                if (this.x < this.radius) {
+                    this.x = this.radius;
+                    this.vx *= -0.5;
+                } else if (this.x > canvas.width - this.radius) {
+                    this.x = canvas.width - this.radius;
+                    this.vx *= -0.5;
+                }
+
+                if (this.y > canvas.height - this.radius) {
+                    this.y = canvas.height - this.radius;
+                    this.vy *= -0.7;
+                    this.vx *= 0.9;
+                    
+                    if (this.char === targetChar) {
+                        loseLife();
+                    }
+                }
+            }
+        }
+
+        function createLetter() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            const char = chars[Math.floor(Math.random() * chars.length)];
+            const x = Math.random() * (canvas.width - 40) + 20;
+            letters.push(new Letter(char, x, 0));
+        }
+
+        function resolveCollisions() {
+            for (let i = 0; i < letters.length; i++) {
+                for (let j = i + 1; j < letters.length; j++) {
+                    const a = letters[i];
+                    const b = letters[j];
+                    
+                    const dx = b.x - a.x;
+                    const dy = b.y - a.y;
+                    const distance = Math.sqrt(dx*dx + dy*dy);
+                    const minDist = a.radius + b.radius;
+
+                    if (distance < minDist) {
+                        const nx = dx / distance;
+                        const ny = dy / distance;
+                        const percent = (minDist - distance) / 2;
+                        a.x -= nx * percent;
+                        a.y -= ny * percent;
+                        b.x += nx * percent;
+                        b.y += ny * percent;
+
+                        const dvx = b.vx - a.vx;
+                        const dvy = b.vy - a.vy;
+                        const dot = dvx*nx + dvy*ny;
+                        
+                        if (dot > 0) return;
+                        
+                        const impulse = -(1 + 0.8) * dot / (1/a.mass + 1/b.mass);
+                        
+                        a.vx -= impulse * nx / a.mass;
+                        a.vy -= impulse * ny / a.mass;
+                        b.vx += impulse * nx / b.mass;
+                        b.vy += impulse * ny / b.mass;
+                    }
+                }
+            }
+        }
+
+        function resize() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+
+        // Game functions
+        function generateNewTarget() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            targetChar = chars[Math.floor(Math.random() * chars.length)];
+            targetElement.textContent = targetChar;
+            targetElement.style.color = `hsl(${Math.random()*360}, 100%, 60%)`;
+        }
 
         function updateUI() {
-            document.getElementById('goldCount').innerText = gold;
-            document.getElementById('clickCount').innerText = clickCount;
-            document.getElementById('goldPerSecond').innerText = goldPerSecond;
-            document.getElementById('upgradeClickCost').innerText = upgradeClickCost;
-            document.getElementById('upgradeAutoCost').innerText = upgradeAutoCost;
-            document.getElementById('upgradeClick').disabled = gold < upgradeClickCost;
-            document.getElementById('upgradeAuto').disabled = gold < upgradeAutoCost;
+            scoreElement.textContent = score;
+            livesElement.innerHTML = '❤'.repeat(lives).padEnd(3, '♡');
         }
 
-        setInterval(() => {
-            gold += goldPerSecond;
+        function checkGameOver() {
+            if (lives <= 0) {
+                alert(`GAME OVER! Your score: ${score}`);
+                location.reload();
+            }
+        }
+
+        function loseLife() {
+            lives--;
             updateUI();
-        }, 1000);
-
-        const canvas = document.getElementById('renderCanvas');
-        const engine = new BABYLON.Engine(canvas, true);
-        const scene = new BABYLON.Scene(engine);
-        let camera;
-
-        function setupCamera() {
-            if (camera) camera.dispose();
-            
-            const isMobile = window.innerWidth < 768;
-            camera = new BABYLON.ArcRotateCamera(
-                "Camera", 
-                -Math.PI / 2, 
-                Math.PI / 2.5, 
-                isMobile ? 8 : 5, 
-                BABYLON.Vector3.Zero(), 
-                scene
-            );
-            
-            camera.attachControl(canvas, true);
-            camera.lowerRadiusLimit = isMobile ? 6 : 4;
-            camera.upperRadiusLimit = isMobile ? 10 : 6;
-            camera.wheelDeltaPercentage = 0.01;
-            camera.pinchDeltaPercentage = 0.01;
+            checkGameOver();
+            canvas.style.transform = 'translateX(10px)';
+            setTimeout(() => canvas.style.transform = '', 50);
         }
 
-        const light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(1, 1, 0), scene);
-        light.intensity = 0.7;
+        // Event listeners
+        window.addEventListener('resize', resize);
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
 
-        const goldOre = BABYLON.MeshBuilder.CreateSphere("goldOre", {diameter: 2}, scene);
-        const goldMaterial = new BABYLON.StandardMaterial("goldMat", scene);
-        goldMaterial.diffuseColor = new BABYLON.Color3(1, 0.843, 0);
-        goldOre.material = goldMaterial;
-
-        function animateClick(mesh) {
-            const anim = new BABYLON.Animation("clickAnim", "scaling", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
-            const keys = [
-                { frame: 0, value: new BABYLON.Vector3(1,1,1) },
-                { frame: 10, value: new BABYLON.Vector3(1.2,1.2,1.2) },
-                { frame: 20, value: new BABYLON.Vector3(1,1,1) }
-            ];
-            anim.setKeys(keys);
-            mesh.animations = [];
-            mesh.animations.push(anim);
-            scene.beginAnimation(mesh, 0, 20, false);
-        }
-
-        scene.onPointerObservable.add((pointerInfo) => {
-            if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERPICK) {
-                const mesh = pointerInfo.pickInfo.pickedMesh;
-                if (mesh && mesh.name === "goldOre") {
-                    gold += goldPerClick;
-                    clickCount += 1;
-                    animateClick(mesh);
+            for (let i = letters.length - 1; i >= 0; i--) {
+                const letter = letters[i];
+                const dx = mouseX - letter.x;
+                const dy = mouseY - letter.y;
+                
+                if (Math.sqrt(dx*dx + dy*dy) < letter.radius) {
+                    if (letter.char === targetChar) {
+                        score += 100;
+                        correctCatches++;
+                        if (correctCatches % 3 === 0) generateNewTarget();
+                    } else {
+                        loseLife();
+                    }
+                    
+                    letters.splice(i, 1);
                     updateUI();
+                    break;
                 }
             }
         });
 
-        document.getElementById('upgradeClick').addEventListener('click', () => {
-            if (gold >= upgradeClickCost) {
-                gold -= upgradeClickCost;
-                goldPerClick += 1;
-                upgradeClickCost = Math.floor(upgradeClickCost * 1.5);
-                updateUI();
-            }
-        });
-
-        document.getElementById('upgradeAuto').addEventListener('click', () => {
-            if (gold >= upgradeAutoCost) {
-                gold -= upgradeAutoCost;
-                goldPerSecond += 1;
-                autoUpgradeCount += 1;
-                upgradeAutoCost = Math.floor(upgradeAutoCost * 1.7);
-                updateUI();
-            }
-        });
-
-        let lastWidth = window.innerWidth;
-        window.addEventListener('resize', () => {
-            engine.resize();
-            if (Math.abs(lastWidth - window.innerWidth) > 50) {
-                lastWidth = window.innerWidth;
-                setupCamera();
-            }
-        });
-
-        setupCamera();
-        engine.runRenderLoop(() => {
-            scene.render();
-        });
-
+        // Initialize
+        resize();
+        generateNewTarget();
         updateUI();
+
+        // Animation loop
+        let lastTime = 0;
+        function animate(timestamp) {
+            const deltaTime = timestamp - lastTime;
+            lastTime = timestamp;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (Math.random() < 0.05) createLetter();
+
+            letters.forEach(letter => {
+                letter.update(deltaTime);
+                letter.draw();
+            });
+
+            resolveCollisions();
+
+            if (letters.length > 50) letters.shift();
+            
+            requestAnimationFrame(animate);
+        }
+
+        animate(0);
     </script>
 </body>
 </html>
