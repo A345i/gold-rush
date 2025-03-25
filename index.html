@@ -2,239 +2,874 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Золотая Лихорадка</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <script src="https://cdn.babylonjs.com/babylon.js"></script>
-    <script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Простой Редактор Изображений</title>
     <style>
-        html, body {
-            overflow: hidden;
-            width: 100%;
-            height: 100%;
+        /* --- Общие стили --- */
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f5f5f5;
+            --text-color: #333;
+            --border-color: #ddd;
+            --danger-color: #e74c3c;
+            --success-color: #2ecc71;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            background-color: #000;
-            font-family: Arial, sans-serif;
-            color: #fff;
         }
-        #renderCanvas {
-            width: 100%;
-            height: 100%;
-            touch-action: none;
+
+        html {
+            font-size: 16px; /* Базовый размер для rem */
         }
-        #ui {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            right: 10px;
-            z-index: 1;
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--secondary-color);
+            color: var(--text-color);
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            align-items: center;
+            min-height: 100vh;
+            padding: 1rem;
+            overflow-x: hidden; /* Предотвращение горизонтальной прокрутки */
+        }
+
+        h1 {
+            color: var(--primary-color);
+            margin-bottom: 1.5rem;
+            text-align: center;
+            font-size: 1.8rem;
+        }
+
+        /* --- Контейнер редактора --- */
+        .editor-container {
+            background-color: #fff;
+            padding: 1.5rem;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px var(--shadow-color);
+            width: 100%;
+            max-width: 1000px; /* Максимальная ширина редактора */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* --- Область управления --- */
+        .controls {
+            display: flex;
+            flex-wrap: wrap; /* Перенос кнопок на новую строку */
+            gap: 0.75rem; /* Расстояние между элементами */
+            margin-bottom: 1.5rem;
+            justify-content: center; /* Центрирование кнопок */
+            width: 100%;
+        }
+
+        .control-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .control-group label {
+            font-size: 0.9rem;
+            margin-right: 0.3rem;
+            white-space: nowrap;
+        }
+
+        /* --- Стили кнопок --- */
+        button, .file-label {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.6rem 1rem;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background-color 0.2s ease, transform 0.1s ease, border 0.2s ease, box-shadow 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            white-space: nowrap;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        button:hover, .file-label:hover {
+            background-color: #3a7bc8;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+        }
+
+        button:active, .file-label:active {
+            transform: scale(0.98);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        #resetButton { background-color: var(--danger-color); }
+        #resetButton:hover { background-color: #c0392b; }
+        #saveButton { background-color: var(--success-color); }
+        #saveButton:hover { background-color: #27ae60; }
+
+        /* Скрытие стандартного input[type=file] */
+        #imageLoader { display: none; }
+
+        /* --- Ползунки --- */
+        input[type="range"] {
+            cursor: pointer;
+            max-width: 100px;
+            vertical-align: middle;
+        }
+
+        /* --- Область холста --- */
+        .canvas-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #e9e9e9;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            min-height: 200px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            transition: border-color 0.3s ease, background-color 0.3s ease;
+            border-radius: 4px;
+            user-select: none;
+             -webkit-user-select: none;
+             -moz-user-select: none;
+             -ms-user-select: none;
+        }
+
+        #imageCanvas {
+            display: block;
+            max-width: 100%;
+            max-height: 70vh;
+            object-fit: contain;
+            cursor: default;
+        }
+
+        /* --- Область выделения для обрезки --- */
+        #selectionRect {
+            position: absolute;
+            border: 2px dashed var(--danger-color);
+            background-color: rgba(231, 76, 60, 0.2);
+            cursor: move;
+            display: none;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+         /* Указатели изменения размера */
+        .resizer {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background-color: var(--danger-color);
+            border: 1px solid white;
+            border-radius: 50%;
+            pointer-events: all !important;
+            z-index: 10;
+        }
+        .resizer.top-left { top: -6px; left: -6px; cursor: nwse-resize; }
+        .resizer.top-right { top: -6px; right: -6px; cursor: nesw-resize; }
+        .resizer.bottom-left { bottom: -6px; left: -6px; cursor: nesw-resize; }
+        .resizer.bottom-right { bottom: -6px; right: -6px; cursor: nwse-resize; }
+        .resizer.top { top: -6px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+        .resizer.bottom { bottom: -6px; left: 50%; transform: translateX(-50%); cursor: ns-resize; }
+        .resizer.left { top: 50%; left: -6px; transform: translateY(-50%); cursor: ew-resize; }
+        .resizer.right { top: 50%; right: -6px; transform: translateY(-50%); cursor: ew-resize; }
+
+        /* --- Сообщение о загрузке --- */
+        #initialMessage {
+            color: #888;
+            text-align: center;
+            padding: 2rem;
+            font-size: 1.1rem;
             pointer-events: none;
         }
-        .panel {
-            background: rgba(0, 0, 0, 0.5);
-            padding: 1rem;
-            border-radius: 8px;
-            backdrop-filter: blur(5px);
-            pointer-events: auto;
-            max-width: 320px;
+
+        /* --- Стили для Drag & Drop --- */
+        .canvas-wrapper.drag-over {
+            border: 3px dashed var(--primary-color);
+            background-color: rgba(74, 144, 226, 0.1);
         }
-        .panel h3 {
-            margin: 0 0 8px 0;
+        .canvas-wrapper.drag-over #initialMessage::before {
+            content: "Перетащите изображение сюда 👇";
+            display: block;
+            color: var(--primary-color);
+            font-weight: bold;
+            margin-bottom: 0.5rem;
             font-size: 1.2rem;
         }
-        .panel button {
-            width: 100%;
-            padding: 12px;
-            margin-top: 8px;
-            border: none;
-            border-radius: 6px;
-            background-color: #ffd700;
-            color: #000;
-            cursor: pointer;
-            font-size: 1rem;
-            min-height: 44px;
-        }
-        .panel button:disabled {
-            background-color: #999;
-            cursor: not-allowed;
-        }
-        .gold-text {
-            color: #FFD700;
-        }
-        
+        .canvas-wrapper.drag-over #initialMessage { color: var(--primary-color); }
+
+        /* --- Адаптивность --- */
         @media (max-width: 768px) {
-            #ui {
-                top: 5px;
-                left: 5px;
-                right: 5px;
-                gap: 8px;
-            }
-            .panel {
-                padding: 0.8rem;
-                border-radius: 6px;
-            }
-            .panel h3 {
-                font-size: 1rem;
-            }
-            .panel button {
-                padding: 10px;
-                font-size: 0.9rem;
-            }
-            #statsPanel p {
-                font-size: 0.9rem;
-                margin: 4px 0;
-            }
+            .editor-container { padding: 1rem; }
+            h1 { font-size: 1.5rem; margin-bottom: 1rem; }
+            .controls { gap: 0.5rem; margin-bottom: 1rem; }
+            button, .file-label { padding: 0.5rem 0.8rem; font-size: 0.85rem; }
+            .control-group { flex-direction: column; align-items: stretch; width: auto; flex-basis: 120px; text-align: center; }
+            .control-group label { margin-bottom: 0.2rem; margin-right: 0; }
+            input[type="range"] { max-width: 100%; width: 100%; margin: 0.2rem auto 0; }
         }
         @media (max-width: 480px) {
-            .panel {
-                max-width: none;
-            }
-            #upgradePanel button {
-                font-size: 0.8rem;
-            }
-            #statsPanel {
-                display: none;
-            }
+            h1 { font-size: 1.3rem; }
+            .controls { flex-direction: column; align-items: stretch; }
+            button, .file-label { width: 100%; justify-content: center; padding: 0.7rem 1rem; }
+            .control-group { gap: 0.5rem; width: 100%; flex-basis: auto; margin-bottom: 0.5rem; }
+            .canvas-wrapper { min-height: 150px; }
+            #initialMessage { font-size: 1rem; padding: 1rem; }
         }
     </style>
 </head>
 <body>
-    <canvas id="renderCanvas"></canvas>
-    <div id="ui">
-        <div class="panel" id="goldPanel">
-            <h3>Золото: <span id="goldCount" class="gold-text">0</span> 🪙</h3>
+
+    <h1>🎨 Простой Редактор Изображений</h1>
+
+    <div class="editor-container">
+        <!-- Панель Управления -->
+        <div class="controls">
+            <label for="imageLoader" class="file-label">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/><path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708z"/></svg>
+                Загрузить
+            </label>
+            <input type="file" id="imageLoader" accept="image/*">
+
+            <button id="rotateLeft" disabled title="Повернуть влево">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z"/><path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466"/></svg>
+                Влево
+            </button>
+            <button id="rotateRight" disabled title="Повернуть вправо">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 1-.908-.417A6 6 0 1 0 8 2z"/><path d="M7.5 4a.5.5 0 0 1 .5.5v3.5h3.5a.5.5 0 0 1 0 1h-4a.5.5 0 0 1-.5-.5V4.5a.5.5 0 0 1 .5-.5"/></svg>
+               Вправо
+            </button>
+            <button id="cropToggle" disabled title="Выделить/Обрезать">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" id="cropIconSelect"><path d="M3.5.5A.5.5 0 0 1 4 1v13h1V1a.5.5 0 0 1 1 0v13h1V1a.5.5 0 0 1 1 0v13h1V1a.5.5 0 0 1 1 0v13h1V1a.5.5 0 0 1 .5.5v14a.5.5 0 0 1-.5.5H.5a.5.5 0 0 1-.5-.5v-14a.5.5 0 0 1 .5-.5H3z"/><path d="M15.5 3.5a.5.5 0 0 1 .5.5v1H.5a.5.5 0 0 1 0-1H1v-1h1v1h1v-1h1v1h1v-1h1v1h1v-1h1v1h1v-1h1v1h1v-1h1V4a.5.5 0 0 1 .5-.5zM.5 11.5a.5.5 0 0 1 .5.5v1h13v-1a.5.5 0 0 1 1 0v1.5a.5.5 0 0 1-.5.5h-14a.5.5 0 0 1-.5-.5V12a.5.5 0 0 1 .5-.5z"/></svg>
+                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" id="cropIconApply" style="display: none;"><path d="M8.158 1 H.5a.5.5 0 0 0-.5.5v6.586a.5.5 0 0 0 1 0V1.5h6.658a.5.5 0 0 0 0-1m7.342 7.342V14.5a.5.5 0 0 1-.5.5H8.158a.5.5 0 0 1 0-1H14.5V8.158a.5.5 0 0 1 1 0"/><path d="M14.5 1.5a.5.5 0 0 1 .5.5v6.586l-1-1V2.5h-5.086l-1-1zM1.5 14.5a.5.5 0 0 1-.5-.5V8.158l1 1v5.086h5.086l1 1z"/></svg>
+                 <span id="cropToggleText">Выделить</span>
+            </button>
+
+            <div class="control-group">
+                <label for="brightnessSlider">Яркость:</label>
+                <input type="range" id="brightnessSlider" min="0" max="200" value="100" disabled>
+            </div>
+             <div class="control-group">
+                <label for="contrastSlider">Контраст:</label>
+                <input type="range" id="contrastSlider" min="0" max="200" value="100" disabled>
+            </div>
+
+            <button id="resetButton" disabled title="Сбросить изменения">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2zm0 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.308a.25.25 0 0 0 0 .384l2.36 1.966A.25.25 0 0 0 8 4.466"/></svg>
+                Сброс
+            </button>
+            <button id="saveButton" disabled title="Сохранить изображение">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/><path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708z"/></svg>
+                Сохранить
+            </button>
         </div>
-        <div class="panel" id="upgradePanel">
-            <h3>Апгрейды</h3>
-            <button id="upgradeClick">Увеличить золото за клик (Стоимость: <span id="upgradeClickCost">10</span>)</button>
-            <button id="upgradeAuto">Автоматическая добыча (Стоимость: <span id="upgradeAutoCost">50</span>)</button>
-        </div>
-        <div class="panel" id="statsPanel">
-            <h3>Статистика</h3>
-            <p>Клики: <span id="clickCount">0</span></p>
-            <p>🪙 в секунду: <span id="goldPerSecond">0</span></p>
+
+        <!-- Область Холста и Выделения -->
+        <div class="canvas-wrapper" id="canvasWrapper">
+            <canvas id="imageCanvas"></canvas>
+            <div id="selectionRect">
+                <!-- Resizers -->
+                <div class="resizer top-left"></div>
+                <div class="resizer top-right"></div>
+                <div class="resizer bottom-left"></div>
+                <div class="resizer bottom-right"></div>
+                <div class="resizer top"></div>
+                <div class="resizer bottom"></div>
+                <div class="resizer left"></div>
+                <div class="resizer right"></div>
+            </div>
+             <div id="initialMessage">Загрузите изображение<br>или перетащите его сюда</div>
         </div>
     </div>
 
     <script>
-        let gold = 0;
-        let goldPerClick = 1;
-        let goldPerSecond = 0;
-        let clickCount = 0;
-        let upgradeClickCost = 10;
-        let upgradeAutoCost = 50;
-        let autoUpgradeCount = 0;
+        // --- DOM Elements ---
+        const imageLoader = document.getElementById('imageLoader');
+        const canvas = document.getElementById('imageCanvas');
+        const ctx = canvas.getContext('2d');
+        const canvasWrapper = document.getElementById('canvasWrapper');
+        const selectionRectDiv = document.getElementById('selectionRect');
+        const initialMessage = document.getElementById('initialMessage');
+        const rotateLeftBtn = document.getElementById('rotateLeft');
+        const rotateRightBtn = document.getElementById('rotateRight');
+        const cropToggleBtn = document.getElementById('cropToggle');
+        const cropIconSelect = document.getElementById('cropIconSelect');
+        const cropIconApply = document.getElementById('cropIconApply');
+        const cropToggleText = document.getElementById('cropToggleText');
+        const resetButton = document.getElementById('resetButton');
+        const saveButton = document.getElementById('saveButton');
+        const brightnessSlider = document.getElementById('brightnessSlider');
+        const contrastSlider = document.getElementById('contrastSlider');
+        const resizers = document.querySelectorAll('.resizer');
 
-        function updateUI() {
-            document.getElementById('goldCount').innerText = gold;
-            document.getElementById('clickCount').innerText = clickCount;
-            document.getElementById('goldPerSecond').innerText = goldPerSecond;
-            document.getElementById('upgradeClickCost').innerText = upgradeClickCost;
-            document.getElementById('upgradeAutoCost').innerText = upgradeAutoCost;
-            document.getElementById('upgradeClick').disabled = gold < upgradeClickCost;
-            document.getElementById('upgradeAuto').disabled = gold < upgradeAutoCost;
+        // --- State Variables ---
+        let originalImage = null;         // The very first loaded Image object
+        let currentImageState = null;    // Represents the image data *currently* being manipulated (can be original or cropped)
+                                         // This will store an ImageBitmap or an Image object
+        let originalImageDataURL = null; // For reset functionality
+        let currentRotation = 0;         // Degrees, applied only during drawing, not baked into currentImageState unless cropped
+        let currentBrightness = 100;
+        let currentContrast = 100;
+        let isCroppingMode = false;
+        let isDraggingSelection = false;
+        let isResizing = false;
+        let startX, startY;              // Mouse start position relative to wrapper
+        let selection = { x: 0, y: 0, width: 0, height: 0, active: false, initial: null }; // Selection coords relative to wrapper
+        let resizeHandle = null;
+        let viewScale = 1; // Scale factor used to draw the image on canvas
+
+        // --- Initialization ---
+        window.addEventListener('DOMContentLoaded', () => {
+            updateButtonStates();
+            setupDragAndDrop();
+        });
+
+        // --- Image Loading ---
+        function loadImageFromFile(file) {
+            if (!file || !file.type.startsWith('image/')) {
+                alert('Пожалуйста, выберите файл изображения.');
+                if (imageLoader.value) imageLoader.value = null;
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                originalImage = new Image();
+                originalImage.onload = async () => {
+                    try {
+                        // Use createImageBitmap for better performance and off-thread decoding potential
+                        currentImageState = await createImageBitmap(originalImage);
+                        originalImageDataURL = event.target.result;
+                        resetStateToOriginal(); // Includes redraw
+                        initialMessage.style.display = 'none';
+                        canvas.style.display = 'block';
+                        updateButtonStates();
+                        canvas.style.cursor = 'default';
+                        if(isCroppingMode) resetCropMode();
+                    } catch (error) {
+                        console.error("Error creating ImageBitmap:", error);
+                        alert('Не удалось обработать изображение.');
+                        resetEditor();
+                    }
+                };
+                originalImage.onerror = () => {
+                    alert('Не удалось загрузить изображение.');
+                    resetEditor();
+                };
+                originalImage.src = event.target.result;
+            };
+            reader.onerror = () => {
+                alert('Ошибка чтения файла.');
+                resetEditor();
+            };
+            reader.readAsDataURL(file);
+            if (imageLoader.value) imageLoader.value = null;
         }
 
-        setInterval(() => {
-            gold += goldPerSecond;
-            updateUI();
-        }, 1000);
+        imageLoader.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) loadImageFromFile(file);
+        });
 
-        const canvas = document.getElementById('renderCanvas');
-        const engine = new BABYLON.Engine(canvas, true);
-        const scene = new BABYLON.Scene(engine);
-        let camera;
-
-        function setupCamera() {
-            if (camera) camera.dispose();
-            
-            const isMobile = window.innerWidth < 768;
-            camera = new BABYLON.ArcRotateCamera(
-                "Camera", 
-                -Math.PI / 2, 
-                Math.PI / 2.5, 
-                isMobile ? 8 : 5, 
-                BABYLON.Vector3.Zero(), 
-                scene
-            );
-            
-            camera.attachControl(canvas, true);
-            camera.lowerRadiusLimit = isMobile ? 6 : 4;
-            camera.upperRadiusLimit = isMobile ? 10 : 6;
-            camera.wheelDeltaPercentage = 0.01;
-            camera.pinchDeltaPercentage = 0.01;
+        // --- Drag and Drop Setup ---
+        function setupDragAndDrop() {
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                canvasWrapper.addEventListener(eventName, preventDefaults, false);
+                document.body.addEventListener(eventName, preventDefaults, false);
+            });
+            function preventDefaults(e) { e.preventDefault(); e.stopPropagation(); }
+            ['dragenter', 'dragover'].forEach(eventName => canvasWrapper.addEventListener(eventName, highlight, false));
+            ['dragleave', 'drop'].forEach(eventName => canvasWrapper.addEventListener(eventName, unhighlight, false));
+            function highlight(e) { if (e.dataTransfer.types && Array.from(e.dataTransfer.types).includes('Files')) { canvasWrapper.classList.add('drag-over'); }}
+            function unhighlight(e) { canvasWrapper.classList.remove('drag-over'); }
+            canvasWrapper.addEventListener('drop', (e) => {
+                const files = e.dataTransfer.files;
+                if (files.length > 0) loadImageFromFile(files[0]);
+                else console.warn("Перетащенный элемент не является файлом.");
+            }, false);
         }
 
-        const light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(1, 1, 0), scene);
-        light.intensity = 0.7;
+        // --- Drawing Logic ---
+        function redrawCanvas() {
+            if (!currentImageState) return;
 
-        const goldOre = BABYLON.MeshBuilder.CreateSphere("goldOre", {diameter: 2}, scene);
-        const goldMaterial = new BABYLON.StandardMaterial("goldMat", scene);
-        goldMaterial.diffuseColor = new BABYLON.Color3(1, 0.843, 0);
-        goldOre.material = goldMaterial;
+            const imgWidth = currentImageState.width; // Use ImageBitmap dimensions
+            const imgHeight = currentImageState.height;
+            const rad = currentRotation * Math.PI / 180;
+            const absCos = Math.abs(Math.cos(rad));
+            const absSin = Math.abs(Math.sin(rad));
+            const rotatedBoundingBoxWidth = imgWidth * absCos + imgHeight * absSin;
+            const rotatedBoundingBoxHeight = imgWidth * absSin + imgHeight * absCos;
 
-        function animateClick(mesh) {
-            const anim = new BABYLON.Animation("clickAnim", "scaling", 30, BABYLON.Animation.ANIMATIONTYPE_VECTOR3, BABYLON.Animation.ANIMATIONLOOPMODE_CONSTANT);
-            const keys = [
-                { frame: 0, value: new BABYLON.Vector3(1,1,1) },
-                { frame: 10, value: new BABYLON.Vector3(1.2,1.2,1.2) },
-                { frame: 20, value: new BABYLON.Vector3(1,1,1) }
-            ];
-            anim.setKeys(keys);
-            mesh.animations = [];
-            mesh.animations.push(anim);
-            scene.beginAnimation(mesh, 0, 20, false);
+            const maxWidth = canvasWrapper.clientWidth;
+            const maxHeight = window.innerHeight * 0.7; // Limit canvas height
+
+            // Calculate scale to fit, store it globally for coordinate mapping
+            const scaleWidth = maxWidth > 0 ? maxWidth / rotatedBoundingBoxWidth : 1;
+            const scaleHeight = maxHeight > 0 ? maxHeight / rotatedBoundingBoxHeight : 1;
+            viewScale = Math.min(scaleWidth, scaleHeight, 1); // Don't scale up
+
+            // Set actual canvas drawing size
+            canvas.width = rotatedBoundingBoxWidth * viewScale;
+            canvas.height = rotatedBoundingBoxHeight * viewScale;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.save();
+            // Apply filters
+            ctx.filter = `brightness(${currentBrightness}%) contrast(${currentContrast}%)`;
+            // Translate, rotate, draw centered
+            ctx.translate(canvas.width / 2, canvas.height / 2);
+            ctx.rotate(rad);
+            const drawWidth = imgWidth * viewScale;
+            const drawHeight = imgHeight * viewScale;
+            // Use ImageBitmap directly in drawImage
+            ctx.drawImage(currentImageState, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+            ctx.restore();
+
+            // Update selection visuals if necessary
+            if (isCroppingMode && selection.active) {
+                 clampSelectionToCanvas(); // Re-clamp based on potentially new canvas size/position
+                 updateSelectionRectVisuals();
+            } else {
+                hideSelectionRect();
+            }
         }
 
-        scene.onPointerObservable.add((pointerInfo) => {
-            if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERPICK) {
-                const mesh = pointerInfo.pickInfo.pickedMesh;
-                if (mesh && mesh.name === "goldOre") {
-                    gold += goldPerClick;
-                    clickCount += 1;
-                    animateClick(mesh);
-                    updateUI();
+        // --- Controls ---
+        rotateLeftBtn.addEventListener('click', () => { if (!isCroppingMode) { currentRotation = (currentRotation - 90 + 360) % 360; redrawCanvas(); }});
+        rotateRightBtn.addEventListener('click', () => { if (!isCroppingMode) { currentRotation = (currentRotation + 90) % 360; redrawCanvas(); }});
+        brightnessSlider.addEventListener('input', (e) => { if (!isCroppingMode) { currentBrightness = e.target.value; redrawCanvas(); }});
+        contrastSlider.addEventListener('input', (e) => { if (!isCroppingMode) { currentContrast = e.target.value; redrawCanvas(); }});
+
+        resetButton.addEventListener('click', async () => {
+            if (originalImage) { // Check if originalImage exists
+                try {
+                    // Recreate ImageBitmap from the original Image object
+                    currentImageState = await createImageBitmap(originalImage);
+                    resetStateToOriginal(); // Resets transforms, redraws, updates buttons
+                } catch (error) {
+                    console.error("Error recreating ImageBitmap on reset:", error);
+                    alert('Не удалось сбросить изображение.');
+                    resetEditor(); // Fallback to full reset
                 }
             }
         });
 
-        document.getElementById('upgradeClick').addEventListener('click', () => {
-            if (gold >= upgradeClickCost) {
-                gold -= upgradeClickCost;
-                goldPerClick += 1;
-                upgradeClickCost = Math.floor(upgradeClickCost * 1.5);
-                updateUI();
+        saveButton.addEventListener('click', async () => {
+            if (!currentImageState) return;
+
+             console.log('Saving image state with dimensions:', currentImageState.width, 'x', currentImageState.height);
+
+            // Create a temporary canvas for saving
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+
+            // Set canvas size to the exact dimensions of the current image state
+            tempCanvas.width = currentImageState.width;
+            tempCanvas.height = currentImageState.height;
+
+            // --- Apply transformations *only if* they haven't been baked in by a crop ---
+            // If rotation is 0 and filters are default, we can draw directly.
+            // Otherwise, apply the current rotation/filters to the temp canvas before drawing.
+            if (currentRotation !== 0 || currentBrightness !== 100 || currentContrast !== 100) {
+                 console.log('Applying final transforms for saving:', { currentRotation, currentBrightness, currentContrast });
+                 const rad = currentRotation * Math.PI / 180;
+                 const absCos = Math.abs(Math.cos(rad));
+                 const absSin = Math.abs(Math.sin(rad));
+
+                 // Adjust canvas size if rotation needs to be applied
+                 tempCanvas.width = Math.round(currentImageState.width * absCos + currentImageState.height * absSin);
+                 tempCanvas.height = Math.round(currentImageState.width * absSin + currentImageState.height * absCos);
+
+                 tempCtx.filter = `brightness(${currentBrightness}%) contrast(${currentContrast}%)`;
+                 tempCtx.translate(tempCanvas.width / 2, tempCanvas.height / 2);
+                 tempCtx.rotate(rad);
+                 // Draw centered on the potentially larger rotated canvas
+                 tempCtx.drawImage(
+                     currentImageState,
+                     -currentImageState.width / 2,
+                     -currentImageState.height / 2,
+                     currentImageState.width,
+                     currentImageState.height
+                 );
+            } else {
+                 // No rotation or filters to apply (either reset or baked in by crop)
+                 console.log('Drawing directly for saving (no extra transforms).');
+                 tempCtx.drawImage(
+                     currentImageState,
+                     0, 0,
+                     currentImageState.width,
+                     currentImageState.height
+                 );
+            }
+
+            // --- Create download link ---
+            const link = document.createElement('a');
+            const timestamp = new Date().toISOString().replace(/[:.-]/g, '').slice(0, 15);
+            link.download = `edited-${timestamp}.png`;
+            try {
+                 link.href = tempCanvas.toDataURL('image/png');
+                 document.body.appendChild(link);
+                 link.click();
+                 document.body.removeChild(link);
+            } catch (e) {
+                 console.error("Ошибка при создании Data URL или скачивании:", e);
+                 alert("Не удалось сохранить изображение. Возможная причина: ошибка безопасности холста (cross-origin).");
             }
         });
 
-        document.getElementById('upgradeAuto').addEventListener('click', () => {
-            if (gold >= upgradeAutoCost) {
-                gold -= upgradeAutoCost;
-                goldPerSecond += 1;
-                autoUpgradeCount += 1;
-                upgradeAutoCost = Math.floor(upgradeAutoCost * 1.7);
-                updateUI();
+
+        // --- Cropping Logic ---
+
+        cropToggleBtn.addEventListener('click', () => {
+            isCroppingMode = !isCroppingMode;
+            if (isCroppingMode) {
+                // Enter crop mode
+                canvasWrapper.style.cursor = 'crosshair';
+                canvas.style.cursor = 'crosshair';
+                canvasWrapper.addEventListener('mousedown', handleMouseDown);
+                resetSelection();
+                updateButtonStates();
+            } else {
+                // Exit or Apply crop
+                if (selection.active && selection.width > 5 && selection.height > 5) {
+                    performCrop(); // Attempt to apply crop
+                } else {
+                    resetCropMode(); // Just exit if no valid selection
+                }
             }
         });
 
-        let lastWidth = window.innerWidth;
+         function resetCropMode() {
+            isCroppingMode = false;
+            canvasWrapper.style.cursor = 'default';
+            canvas.style.cursor = 'default';
+            hideSelectionRect();
+            resetSelection();
+            canvasWrapper.removeEventListener('mousedown', handleMouseDown);
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+            updateButtonStates();
+        }
+
+        function handleMouseDown(e) {
+            if (!isCroppingMode || !currentImageState) return;
+            e.preventDefault();
+
+            const wrapperRect = canvasWrapper.getBoundingClientRect();
+            const mouseX = e.clientX - wrapperRect.left;
+            const mouseY = e.clientY - wrapperRect.top;
+
+            if (e.target.classList.contains('resizer')) {
+                isResizing = true; isDraggingSelection = false;
+                resizeHandle = e.target.classList.value.replace('resizer ', '').trim();
+                startX = mouseX; startY = mouseY;
+                selection.initial = { ...selection };
+                canvasWrapper.style.cursor = getComputedStyle(e.target).cursor;
+            } else if (selection.active && isPointInSelection(mouseX, mouseY)) {
+                isDraggingSelection = true; isResizing = false;
+                startX = mouseX - selection.x; startY = mouseY - selection.y;
+                canvasWrapper.style.cursor = 'move';
+            } else {
+                isDraggingSelection = false; isResizing = false;
+                selection.active = true;
+                selection.x = mouseX; selection.y = mouseY;
+                selection.width = 0; selection.height = 0;
+                selection.initial = null; // Mark as drawing new box
+                startX = mouseX; startY = mouseY;
+                showSelectionRect();
+                updateSelectionRectVisuals();
+                canvasWrapper.style.cursor = 'crosshair';
+            }
+
+            window.addEventListener('mousemove', handleMouseMove);
+            window.addEventListener('mouseup', handleMouseUp);
+        }
+
+        function handleMouseMove(e) {
+            if (!selection.active || (!isDraggingSelection && !isResizing && selection.initial !== null)) return;
+
+            const wrapperRect = canvasWrapper.getBoundingClientRect();
+            const mouseX = e.clientX - wrapperRect.left;
+            const mouseY = e.clientY - wrapperRect.top;
+            let newX = selection.x, newY = selection.y, newW = selection.width, newH = selection.height;
+
+            if (isResizing) {
+                const dx = mouseX - startX; const dy = mouseY - startY;
+                const initial = selection.initial;
+                newX = initial.x; newY = initial.y; newW = initial.width; newH = initial.height;
+                const minSize = 5;
+
+                if (resizeHandle.includes('right')) newW = Math.max(minSize, initial.width + dx);
+                if (resizeHandle.includes('bottom')) newH = Math.max(minSize, initial.height + dy);
+                if (resizeHandle.includes('left')) {
+                    const potentialW = initial.width - dx;
+                    if (potentialW >= minSize) { newW = potentialW; newX = initial.x + dx; }
+                    else { newW = minSize; newX = initial.x + initial.width - minSize; }
+                }
+                if (resizeHandle.includes('top')) {
+                    const potentialH = initial.height - dy;
+                    if (potentialH >= minSize) { newH = potentialH; newY = initial.y + dy; }
+                    else { newH = minSize; newY = initial.y + initial.height - minSize; }
+                }
+                selection.x = newX; selection.y = newY; selection.width = newW; selection.height = newH;
+            } else if (isDraggingSelection) {
+                selection.x = mouseX - startX; selection.y = mouseY - startY;
+            } else { // Drawing new box
+                selection.x = Math.min(mouseX, startX);
+                selection.y = Math.min(mouseY, startY);
+                selection.width = Math.abs(mouseX - startX);
+                selection.height = Math.abs(mouseY - startY);
+            }
+
+            clampSelectionToCanvas();
+            updateSelectionRectVisuals();
+        }
+
+        function handleMouseUp() {
+            if (selection.active && (selection.width < 5 || selection.height < 5) && !isDraggingSelection && !isResizing) {
+                // If a new box was drawn too small, deactivate selection
+                resetSelection();
+            }
+            isDraggingSelection = false; isResizing = false;
+            resizeHandle = null; selection.initial = null;
+
+            if (isCroppingMode) canvasWrapper.style.cursor = 'crosshair';
+            else canvasWrapper.style.cursor = 'default';
+
+            window.removeEventListener('mousemove', handleMouseMove);
+            window.removeEventListener('mouseup', handleMouseUp);
+            if (selection.active) updateSelectionRectVisuals(); // Final update
+        }
+
+        function clampSelectionToCanvas() {
+            if (!canvas || !selection.active || canvas.width === 0) return;
+            const canvasRect = canvas.getBoundingClientRect();
+            const wrapperRect = canvasWrapper.getBoundingClientRect();
+            const canvasMinX = canvasRect.left - wrapperRect.left;
+            const canvasMinY = canvasRect.top - wrapperRect.top;
+            const canvasMaxX = canvasMinX + canvasRect.width;
+            const canvasMaxY = canvasMinY + canvasRect.height;
+
+            let { x: selX, y: selY, width: selW, height: selH } = selection; // Destructure
+
+            // Clamp top-left
+            selX = Math.max(canvasMinX, selX);
+            selY = Math.max(canvasMinY, selY);
+
+            // Clamp bottom-right based on clamped top-left
+            if (selX + selW > canvasMaxX) selW = Math.max(0, canvasMaxX - selX);
+            if (selY + selH > canvasMaxY) selH = Math.max(0, canvasMaxY - selY);
+
+            // Ensure width/height are not negative after clamping (can happen if selX/selY was already > canvasMaxX/Y)
+            selW = Math.max(0, selW);
+            selH = Math.max(0, selH);
+
+            // Update selection object
+            selection.x = selX; selection.y = selY; selection.width = selW; selection.height = selH;
+        }
+
+         function updateSelectionRectVisuals() {
+             if (!selection.active) { hideSelectionRect(); return; }
+             const displayX = Math.round(selection.x);
+             const displayY = Math.round(selection.y);
+             const displayWidth = Math.round(Math.max(0, selection.width));
+             const displayHeight = Math.round(Math.max(0, selection.height));
+             const minDisplaySize = 3;
+
+             selectionRectDiv.style.left = `${displayX}px`;
+             selectionRectDiv.style.top = `${displayY}px`;
+             selectionRectDiv.style.width = `${displayWidth}px`;
+             selectionRectDiv.style.height = `${displayHeight}px`;
+             selectionRectDiv.style.display = (displayWidth >= minDisplaySize && displayHeight >= minDisplaySize) ? 'block' : 'none';
+         }
+
+         function showSelectionRect() {
+             selectionRectDiv.style.display = 'block'; // Make div element available
+             if(selection.active) updateSelectionRectVisuals(); // Apply current state (might hide if 0 size)
+         }
+         function hideSelectionRect() { selectionRectDiv.style.display = 'none'; }
+         function resetSelection() { selection = { x: 0, y: 0, width: 0, height: 0, active: false, initial: null }; hideSelectionRect(); }
+         function isPointInSelection(px, py) {
+             if (!selection.active || selection.width <= 0 || selection.height <= 0) return false;
+             const tolerance = 2;
+             return px >= selection.x - tolerance && px < selection.x + selection.width + tolerance &&
+                    py >= selection.y - tolerance && py < selection.y + selection.height + tolerance;
+         }
+
+        async function performCrop() {
+            if (!selection.active || selection.width <= 5 || selection.height <= 5 || !currentImageState) {
+                alert("Выделение для обрезки слишком маленькое или отсутствует.");
+                resetCropMode(); return;
+            }
+
+            try {
+                // --- Calculate Crop Region in *Original Image* Coordinates ---
+                // 1. Get selection relative to visible canvas
+                const canvasRect = canvas.getBoundingClientRect();
+                const wrapperRect = canvasWrapper.getBoundingClientRect();
+                const canvasOffsetX = canvasRect.left - wrapperRect.left;
+                const canvasOffsetY = canvasRect.top - wrapperRect.top;
+                const selX_view = selection.x - canvasOffsetX; // Selection X relative to canvas view
+                const selY_view = selection.y - canvasOffsetY; // Selection Y relative to canvas view
+                const selW_view = selection.width;
+                const selH_view = selection.height;
+
+                // 2. Map view coordinates back to original image coordinates (inverse scale)
+                // Need to account for the centering offset used in redrawCanvas
+                const drawWidth = currentImageState.width * viewScale;
+                const drawHeight = currentImageState.height * viewScale;
+                // Calculate the top-left corner where the scaled image *starts* drawing within the canvas buffer
+                const imgDrawOffsetX = (canvas.width - drawWidth) / 2;
+                const imgDrawOffsetY = (canvas.height - drawHeight) / 2;
+
+                // Selection coordinates relative to the *drawn image* (at viewScale)
+                const selX_img_scaled = selX_view - imgDrawOffsetX;
+                const selY_img_scaled = selY_view - imgDrawOffsetY;
+
+                 // Convert scaled image coordinates to original image coordinates
+                 // Important: This simplified mapping works correctly only when currentRotation is 0.
+                 // If rotation is non-zero during crop selection, the mapping is much more complex.
+                 // For simplicity, let's assume rotation is reset or baked in before crop selection,
+                 // or disable crop if rotation is not 0.
+                 if (currentRotation !== 0) {
+                     alert("Обрезка примененного поворота пока не поддерживается. Сбросьте поворот или сохраните/загрузите повернутое изображение перед обрезкой.");
+                     resetCropMode(); // Exit crop mode
+                     return;
+                 }
+
+                const srcX = Math.round(selX_img_scaled / viewScale);
+                const srcY = Math.round(selY_img_scaled / viewScale);
+                const srcW = Math.round(selW_view / viewScale);
+                const srcH = Math.round(selH_view / viewScale);
+
+                // 3. Clamp source coordinates to the actual image dimensions
+                const imgW = currentImageState.width;
+                const imgH = currentImageState.height;
+                const finalSrcX = Math.max(0, Math.min(srcX, imgW));
+                const finalSrcY = Math.max(0, Math.min(srcY, imgH));
+                const finalSrcW = Math.max(0, Math.min(srcW, imgW - finalSrcX)); // Width cannot exceed remaining image width
+                const finalSrcH = Math.max(0, Math.min(srcH, imgH - finalSrcY)); // Height cannot exceed remaining image height
+
+                console.log('Original Crop Coords:', { x: finalSrcX, y: finalSrcY, w: finalSrcW, h: finalSrcH });
+
+                if (finalSrcW <= 0 || finalSrcH <= 0) {
+                    console.error("Calculated source crop area is invalid.");
+                    alert("Не удалось рассчитать область обрезки на исходном изображении.");
+                    resetSelection(); hideSelectionRect(); return;
+                }
+
+                // 4. Create new ImageBitmap using the calculated source rectangle
+                const croppedBitmap = await createImageBitmap(
+                    currentImageState, // Source ImageBitmap
+                    finalSrcX, finalSrcY, finalSrcW, finalSrcH
+                );
+
+                // 5. Update state
+                // Close the previous bitmap to free memory (if it exists and has close method)
+                if (currentImageState && typeof currentImageState.close === 'function') {
+                     currentImageState.close();
+                }
+                currentImageState = croppedBitmap; // Replace with the new cropped bitmap
+
+                // Reset transformations as they are conceptually baked into the new state
+                currentRotation = 0;
+                currentBrightness = 100; // Reset filters as well, assuming crop is the primary operation
+                currentContrast = 100;
+                brightnessSlider.value = 100;
+                contrastSlider.value = 100;
+
+                resetCropMode(); // Exit UI crop mode
+                redrawCanvas(); // Redraw with the new cropped image state
+
+            } catch (error) {
+                console.error("Error during crop operation:", error);
+                alert("Произошла ошибка во время обрезки.");
+                resetCropMode(); // Ensure exiting crop mode on error
+            }
+        }
+
+
+        // --- Utility Functions ---
+
+        function updateButtonStates() {
+            const hasImage = !!currentImageState;
+            const enableControls = hasImage && !isCroppingMode;
+
+            rotateLeftBtn.disabled = !enableControls;
+            rotateRightBtn.disabled = !enableControls;
+            brightnessSlider.disabled = !enableControls;
+            contrastSlider.disabled = !enableControls;
+            cropToggleBtn.disabled = !hasImage || currentRotation !== 0; // Disable crop if rotated
+             resetButton.disabled = !hasImage;
+            saveButton.disabled = !hasImage;
+
+            // Update Crop Button Visuals
+            if(hasImage){
+                 cropToggleBtn.title = currentRotation !== 0 ? 'Сбросьте поворот для обрезки' : (isCroppingMode ? 'Применить обрезку' : 'Выделить область');
+            }
+
+            cropIconSelect.style.display = isCroppingMode ? 'none' : 'inline';
+            cropIconApply.style.display = isCroppingMode ? 'inline' : 'none';
+            cropToggleText.textContent = isCroppingMode ? 'Обрезать' : 'Выделить';
+        }
+
+        function resetStateToOriginal() {
+            // This function assumes currentImageState has been reset to the original bitmap
+            currentRotation = 0;
+            currentBrightness = 100;
+            currentContrast = 100;
+            brightnessSlider.value = 100;
+            contrastSlider.value = 100;
+            if (isCroppingMode) resetCropMode();
+            else resetSelection();
+            redrawCanvas();
+            updateButtonStates();
+        }
+
+        function resetEditor() {
+             if (currentImageState && typeof currentImageState.close === 'function') {
+                 currentImageState.close(); // Free memory if possible
+             }
+             originalImage = null;
+             currentImageState = null;
+             originalImageDataURL = null;
+             ctx.clearRect(0, 0, canvas.width, canvas.height);
+             canvas.width = 0; canvas.height = 0;
+             initialMessage.innerHTML = "Загрузите изображение<br>или перетащите его сюда";
+             initialMessage.style.display = 'block';
+             canvas.style.display = 'none';
+             canvasWrapper.classList.remove('drag-over');
+             resetStateToOriginal(); // Reset sliders, buttons etc.
+        }
+
+        // Debounced resize handler
+        let resizeTimer;
         window.addEventListener('resize', () => {
-            engine.resize();
-            if (Math.abs(lastWidth - window.innerWidth) > 50) {
-                lastWidth = window.innerWidth;
-                setupCamera();
-            }
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                if (currentImageState) redrawCanvas();
+            }, 150);
         });
 
-        setupCamera();
-        engine.runRenderLoop(() => {
-            scene.render();
-        });
-
-        updateUI();
     </script>
+
 </body>
 </html>
