@@ -488,7 +488,7 @@
         
         function updateUI() {
             if(!player || !cpu) return;
-            playerInfo.textContent = `СССР HP: ${player.health}`;
+            playerInfo.textContent = `СССР 🛡️: ${player.health}`;
             cpuInfo.textContent = `USA 🛡️: ${cpu.health}`;
             if(currentPlayer === player){
                 angleInfo.textContent = `Угол: ${player.angle.toFixed(1)}`;
