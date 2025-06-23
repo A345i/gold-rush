@@ -1,0 +1,736 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Игра Артиллерия</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        body, html {
+            font-family: 'Press-Start-2P', cursive;
+            background-color: #00001a;
+            color: #ffffff;
+            overflow: hidden;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .game-wrapper {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            box-sizing: border-box;
+        }
+        canvas {
+            background-color: #000000;
+            display: block;
+            border-radius: 0.5rem;
+            box-shadow: 0 0 20px rgba(173, 216, 230, 0.5);
+            max-width: 100%;
+            max-height: 100%;
+        }
+        .game-container {
+            position: relative;
+            width: 100%;
+            max-width: 1200px;
+            aspect-ratio: 16 / 9;
+        }
+        .info-panel, .bonus-panel {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            padding: 0.5rem 1rem;
+            background-color: rgba(0,0,0,0.3);
+            border-radius: 0.5rem;
+            min-height: 34px;
+            font-size: clamp(0.6rem, 2vw, 0.8rem);
+        }
+        .message-box {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.75);
+            padding: 2rem;
+            border-radius: 1rem;
+            text-align: center;
+            font-size: clamp(1rem, 4vw, 1.5rem);
+            line-height: clamp(1.5rem, 6vw, 2.5rem);
+            box-shadow: 0 0 30px #fff;
+            z-index: 100;
+        }
+        /* Стили для сенсорных контролов */
+        .touch-controls {
+            position: absolute;
+            bottom: 10px;
+            left: 0;
+            width: 100%;
+            height: 100px;
+            display: none; /* Скрыты по умолчанию */
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 10px;
+            box-sizing: border-box;
+            z-index: 50;
+        }
+        .touch-controls button {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.7);
+            color: white;
+            border-radius: 50%;
+            font-size: 24px;
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            -webkit-user-select: none; /* Safari */
+            -ms-user-select: none; /* IE 10+ */
+            user-select: none;
+        }
+        .control-group { display: flex; gap: 10px; }
+        #fire-button {
+            width: 80px; height: 80px;
+            background: rgba(255, 82, 82, 0.5);
+            border-color: rgba(255, 82, 82, 1);
+            font-size: 16px;
+        }
+        /* Показываем контролы на тач-устройствах */
+        @media (pointer: coarse) {
+            .touch-controls { display: flex; }
+            .keyboard-only { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-wrapper">
+        <div class="info-panel">
+            <div id="player-info">Игрок HP: 100</div>
+            <div id="angle-info">Угол: 45</div>
+            <div id="force-info">Сила: 50</div>
+            <div id="wind-info">Ветер: 0.00</div>
+            <div id="cpu-info">CPU HP: 100</div>
+        </div>
+        <div class="bonus-panel">
+             <div id="player-bonus-info" class="flex-grow">Бонусы: Топливо: 100 | Мощь: 0 | Щит: 0 | Кассета: 0</div>
+             <div id="aiming-info" class="keyboard-only">Прицел(T): ВЫКЛ</div>
+             <div id="restart-info" class="keyboard-only">R - Рестарт</div>
+        </div>
+        
+        <div class="game-container">
+            <canvas id="gameCanvas"></canvas>
+            <div id="messageBox" class="message-box hidden"></div>
+            <!-- Сенсорное управление -->
+            <div class="touch-controls">
+                <div class="control-group">
+                    <button id="move-left-btn">⇦</button>
+                    <button id="move-right-btn">⇨</button>
+                </div>
+                <div class="control-group">
+                    <button id="angle-down-btn">∠-</button>
+                    <button id="angle-up-btn">∠+</button>
+                </div>
+                 <button id="fire-button">ОГОНЬ</button>
+                <div class="control-group">
+                    <button id="force-down-btn">S-</button>
+                    <button id="force-up-btn">S+</button>
+                </div>
+                <div class="control-group">
+                     <button id="aim-toggle-btn">🎯</button>
+                     <button id="restart-btn">🔄</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DOM элементы ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const playerInfo = document.getElementById('player-info');
+        const angleInfo = document.getElementById('angle-info');
+        const forceInfo = document.getElementById('force-info');
+        const windInfo = document.getElementById('wind-info');
+        const cpuInfo = document.getElementById('cpu-info');
+        const playerBonusInfo = document.getElementById('player-bonus-info');
+        const aimingInfo = document.getElementById('aiming-info');
+        const messageBox = document.getElementById('messageBox');
+        
+        // --- Константы ---
+        const GRAVITY = 0.08;
+        const TANK_WIDTH = 30;
+        const TANK_HEIGHT = 15;
+        const TURRET_LENGTH = 25;
+        const EXPLOSION_RADIUS = 35;
+        const MAX_WIND = 0.08;
+        const MAX_HEALTH = 100;
+        const BONUS_RADIUS = 15;
+        const BONUS_SPAWN_CHANCE = 0.20; 
+        const SNOWFLAKE_COUNT = 150;
+        const TERRAIN_SETTLE_FRAMES = 20;
+
+        // --- Переменные игры ---
+        let terrain = [];
+        let player, cpu, projectile, explosions = [];
+        let wind = 0;
+        let currentPlayer;
+        let gameState = 'START';
+        let bonuses = [];
+        let snowflakes = [];
+        let particles = [];
+        let terrainSettleCountdown = 0;
+        let showAimingLine = false;
+        let isResizing = false;
+        let actionInterval = null;
+
+        // --- Классы ---
+        class Tank { // ... (без изменений)
+            constructor(x, color, direction) {
+                this.x = x; this.y = 0; this.color = color; this.angle = 45; this.force = 50;
+                this.direction = direction; this.health = MAX_HEALTH; this.fuel = 100;
+                this.powerShells = 0; this.shieldHealth = 0; this.clusterShells = 0;
+            }
+            draw() {
+                if (this.health <= 0) return;
+                const roundedX = Math.round(this.x);
+                if (roundedX >= 0 && roundedX < terrain.length) {
+                    this.y = terrain[roundedX];
+                } else { this.health = 0; }
+                ctx.save(); ctx.translate(this.x, this.y);
+                if (this.shieldHealth > 0) {
+                    ctx.beginPath(); ctx.arc(0, -TANK_HEIGHT / 2, TANK_WIDTH, 0, Math.PI * 2);
+                    const shieldOpacity = Math.min(1, this.shieldHealth / 50);
+                    ctx.fillStyle = `rgba(0, 191, 255, ${0.3 * shieldOpacity})`; ctx.fill();
+                    ctx.strokeStyle = `rgba(0, 191, 255, ${0.8 * shieldOpacity})`; ctx.lineWidth = 2; ctx.stroke();
+                }
+                const healthBarWidth = 40, healthBarHeight = 5;
+                ctx.fillStyle = '#dc2626'; ctx.fillRect(-healthBarWidth / 2, -TANK_HEIGHT - 15, healthBarWidth, healthBarHeight);
+                ctx.fillStyle = '#22c55e'; ctx.fillRect(-healthBarWidth / 2, -TANK_HEIGHT - 15, healthBarWidth * (this.health / MAX_HEALTH), healthBarHeight);
+                ctx.fillStyle = this.color; ctx.fillRect(-TANK_WIDTH / 2, -TANK_HEIGHT, TANK_WIDTH, TANK_HEIGHT);
+                ctx.beginPath(); ctx.arc(0, -TANK_HEIGHT, 8, 0, Math.PI * 2); ctx.fill();
+                const turretAngleRad = (this.direction === 1) ? -this.angle * Math.PI / 180 : -(180 - this.angle) * Math.PI / 180;
+                ctx.rotate(turretAngleRad); ctx.fillStyle = "#C0C0C0"; ctx.fillRect(0, -2.5, TURRET_LENGTH, 5); ctx.restore();
+            }
+            getTurretEnd() {
+                const turretAngleRad = (this.direction === 1) ? -this.angle * Math.PI / 180 : -(180 - this.angle) * Math.PI / 180;
+                return { x: this.x + Math.cos(turretAngleRad) * TURRET_LENGTH, y: this.y + Math.sin(turretAngleRad) * TURRET_LENGTH };
+            }
+            takeDamage(damage) {
+                if (this.shieldHealth > 0) {
+                    const absorbed = Math.min(this.shieldHealth, damage);
+                    this.shieldHealth -= absorbed; damage -= absorbed;
+                }
+                this.health -= damage; if (this.health < 0) this.health = 0;
+            }
+            move(amount) {
+                if (this.fuel <= 0) return;
+                const moveAmount = Math.sign(amount) * Math.min(Math.abs(amount) * 2, this.fuel);
+                const newX = this.x + moveAmount;
+                if (newX > TANK_WIDTH / 2 && newX < canvas.width - TANK_WIDTH / 2) {
+                    this.x = newX; this.fuel -= Math.abs(moveAmount);
+                }
+            }
+        }
+
+        class Projectile { // ... (без изменений)
+            constructor(x, y, vx, vy, isPowerful, isCluster) {
+                this.x = x; this.y = y; this.vx = vx; this.vy = vy; this.path = [{x, y}];
+                this.isPowerful = isPowerful; this.isCluster = isCluster;
+            }
+            update() {
+                for (let i = 0; i < 3; i++) {
+                    const particleX = this.x - this.vx, particleY = this.y - this.vy;
+                    const angle = Math.atan2(-this.vy, -this.vx) + (Math.random() - 0.5) * 0.5;
+                    const speed = Math.random() * 2 + 1;
+                    particles.push(new Particle(particleX, particleY, angle, speed, 15, 'rgba(255, 200, 100, 0.8)'));
+                }
+                this.vx += wind; this.vy += GRAVITY; this.x += this.vx; this.y += this.vy;
+                this.path.push({x: this.x, y: this.y});
+                if (this.path.length > 30) this.path.shift();
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.moveTo(this.path[0].x, this.path[0].y);
+                for (let i = 1; i < this.path.length; i++) ctx.lineTo(this.path[i].x, this.path[i].y);
+                if (this.isPowerful) {
+                    ctx.strokeStyle = 'rgba(255, 165, 0, 0.7)'; ctx.lineWidth = 4;
+                } else if (this.isCluster) {
+                    ctx.strokeStyle = 'rgba(255, 105, 180, 0.7)'; ctx.lineWidth = 4;
+                } else {
+                    ctx.strokeStyle = 'rgba(255, 255, 0, 0.5)'; ctx.lineWidth = 2;
+                }
+                ctx.stroke();
+                if (this.isPowerful) ctx.fillStyle = '#FFA500';
+                else if (this.isCluster) ctx.fillStyle = '#FF69B4';
+                else ctx.fillStyle = 'yellow';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.isPowerful || this.isCluster ? 6: 4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        class Explosion { // ... (без изменений)
+            constructor(x, y, isPowerful = false, radiusMultiplier = 1) {
+                this.x = x; this.y = y; this.radius = 5; this.isPowerful = isPowerful;
+                this.maxRadius = (isPowerful ? EXPLOSION_RADIUS * 1.5 : EXPLOSION_RADIUS) * radiusMultiplier;
+                this.life = 30; this.damageDealt = false;
+            }
+            update() {
+                this.radius += (this.maxRadius - this.radius) * 0.1; this.life--;
+                if (!this.damageDealt) { this.applyDamage(); this.damageDealt = true; }
+            }
+            draw() {
+                const color = this.isPowerful ? `255, ${this.life * 5}, 0` : `255, ${this.life * 8}, 0`;
+                ctx.fillStyle = `rgba(${color}, ${this.life / 30})`;
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2); ctx.fill();
+            }
+            applyDamage() {
+                [player, cpu].forEach(tank => {
+                    const dist = Math.sqrt(Math.pow(this.x - tank.x, 2) + Math.pow(this.y - tank.y, 2));
+                    if (dist < this.maxRadius) {
+                        const damage = Math.round((this.maxRadius - dist) * (this.isPowerful ? 2.5 : 1.5));
+                        tank.takeDamage(damage);
+                    }
+                });
+                updateUI(); checkGameOver();
+            }
+        }
+        
+        class Bonus { // ... (без изменений)
+            constructor(type) {
+                this.x = Math.random() * (canvas.width - 200) + 100; this.y = -20;
+                this.vy = 0; this.onGround = false; this.type = type; this.radius = BONUS_RADIUS;
+            }
+            update() {
+                if (this.onGround) return;
+                this.vy += GRAVITY * 0.1; this.y += this.vy; this.x += wind * 5;
+                if(this.y >= terrain[Math.round(this.x)] - this.radius) {
+                    this.y = terrain[Math.round(this.x)] - this.radius;
+                    this.onGround = true;
+                }
+            }
+            draw() {
+                ctx.save(); ctx.translate(this.x, this.y);
+                if (!this.onGround) {
+                    ctx.fillStyle = "rgba(230, 230, 230, 0.9)";
+                    ctx.beginPath();
+                    ctx.arc(0, -this.radius * 2, this.radius * 1.5, Math.PI, 0);
+                    ctx.fill();
+                    ctx.strokeStyle = "white";
+                    ctx.beginPath();
+                    ctx.moveTo(-this.radius, -this.radius * 1.8); ctx.lineTo(0, 0);
+                    ctx.moveTo(this.radius, -this.radius * 1.8); ctx.lineTo(0, 0);
+                    ctx.stroke();
+                }
+                const pulse = Math.sin(Date.now() * 0.005) * 0.1 + 0.9;
+                ctx.scale(pulse, pulse); ctx.beginPath();
+                ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+                const typeMap = {
+                    'MOVE': { color: '#00FF00', char: 'M'}, 'POWER_SHELL': { color: '#FFA500', char: 'P'},
+                    'SHIELD': { color: '#00BFFF', char: 'S'}, 'CLUSTER': { color: '#FF69B4', char: 'C'}
+                };
+                const config = typeMap[this.type];
+                ctx.fillStyle = config.color.slice(0, 7) + 'B3'; ctx.strokeStyle = config.color;
+                ctx.fill(); ctx.lineWidth = 2; ctx.stroke();
+                ctx.fillStyle = 'white'; ctx.font = `${this.radius}px 'Press Start 2P'`;
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText(config.char, 0, 2);
+                ctx.restore();
+            }
+        }
+
+        class Particle { // ... (без изменений)
+            constructor(x, y, angle, speed, life, color) {
+                this.x = x; this.y = y;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                this.life = life; this.maxLife = life;
+                this.color = color; this.radius = Math.random() * 2 + 1;
+            }
+            update() { this.x += this.vx; this.y += this.vy; this.life--; }
+            draw() {
+                ctx.fillStyle = this.color.replace(/, [0-9.]+\)/, `, ${this.life / this.maxLife})`);
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.radius, 0, Math.PI*2); ctx.fill();
+            }
+        }
+        
+        // --- Функции ---
+        function generateTerrain() { // ... (без изменений)
+            terrain = new Array(canvas.width).fill(canvas.height);
+            let y = canvas.height * 0.7;
+            const roughness = 0.6;
+            function displace(arr, start, end, magnitude) {
+                if (end - start < 2) return;
+                const mid = Math.floor((start + end) / 2);
+                arr[mid] = (arr[start] + arr[end]) / 2 + (Math.random() - 0.5) * magnitude;
+                displace(arr, start, mid, magnitude * roughness);
+                displace(arr, mid, end, magnitude * roughness);
+            }
+            terrain[0] = y; terrain[canvas.width-1] = y * (Math.random()*0.4 + 0.8);
+            displace(terrain, 0, canvas.width - 1, canvas.height/3);
+            for (let i = 0; i < terrain.length; i++) {
+                if(terrain[i] > canvas.height - 20) terrain[i] = canvas.height - 20;
+                if(terrain[i] < canvas.height / 3) terrain[i] = canvas.height / 3;
+            }
+        }
+        
+        function updateTerrainPhysics() { // ... (без изменений)
+            if (terrainSettleCountdown <= 0) return;
+            terrainSettleCountdown--;
+            const slopeThreshold = 1.5;
+            for (let i = 1; i < terrain.length; i++) {
+                if (terrain[i] > terrain[i - 1] + slopeThreshold) {
+                    const diff = (terrain[i] - terrain[i-1]) * 0.1;
+                    terrain[i] -= diff; terrain[i - 1] += diff;
+                }
+            }
+            for (let i = terrain.length - 2; i >= 0; i--) {
+                if (terrain[i] > terrain[i + 1] + slopeThreshold) {
+                    const diff = (terrain[i] - terrain[i+1]) * 0.1;
+                    terrain[i] -= diff; terrain[i + 1] += diff;
+                }
+            }
+        }
+        
+        function initSnow() { // ... (без изменений)
+             snowflakes = [];
+            for (let i = 0; i < SNOWFLAKE_COUNT; i++) {
+                snowflakes.push({
+                    x: Math.random() * canvas.width, y: Math.random() * canvas.height,
+                    radius: Math.random() * 2 + 1, speed: Math.random() * 0.5 + 0.2
+                });
+            }
+        }
+
+        function drawAndUpdateSnow() { // ... (без изменений)
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'; ctx.beginPath();
+            for (const flake of snowflakes) {
+                flake.y += flake.speed; flake.x += wind * 20;
+                if (flake.y > canvas.height) { flake.y = -5; flake.x = Math.random() * canvas.width; }
+                if (flake.x > canvas.width) flake.x = 0;
+                if (flake.x < 0) flake.x = canvas.width;
+                ctx.moveTo(flake.x, flake.y); ctx.arc(flake.x, flake.y, flake.radius, 0, Math.PI * 2);
+            }
+            ctx.fill();
+        }
+
+        function spawnBonus() { // ... (без изменений)
+            if (bonuses.length > 2) return;
+            if (Math.random() < BONUS_SPAWN_CHANCE) {
+                const typeRoll = Math.random();
+                let type;
+                if (typeRoll < 0.25) type = 'MOVE';
+                else if (typeRoll < 0.50) type = 'POWER_SHELL';
+                else if (typeRoll < 0.75) type = 'SHIELD';
+                else type = 'CLUSTER';
+                bonuses.push(new Bonus(type));
+            }
+        }
+
+        function drawScene() { // ... (без изменений)
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#00001a'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            drawAndUpdateSnow();
+            ctx.fillStyle = '#2a9d8f';
+            ctx.beginPath(); ctx.moveTo(0, canvas.height);
+            for (let i = 0; i < canvas.width; i++) ctx.lineTo(i, terrain[i]);
+            ctx.lineTo(canvas.width, canvas.height); ctx.closePath(); ctx.fill();
+        }
+        
+        function deformTerrain(x, y, radius) { // ... (без изменений)
+            for (let i = 0; i < canvas.width; i++) {
+                if (i < 0 || i >= terrain.length) continue;
+                const distSqr = Math.pow(x - i, 2) + Math.pow(y - terrain[i], 2);
+                if (distSqr < radius*radius) {
+                     terrain[i] += Math.sqrt(radius*radius - (x-i)*(x-i)) - (y > terrain[i] ? Math.abs(y-terrain[i]) : -Math.abs(y-terrain[i]));
+                }
+            }
+            terrainSettleCountdown = TERRAIN_SETTLE_FRAMES;
+        }
+        
+        function updateUI() { // ... (без изменений)
+            if(!player || !cpu) return;
+            playerInfo.textContent = `Игрок HP: ${player.health}`;
+            cpuInfo.textContent = `CPU HP: ${cpu.health}`;
+            if(currentPlayer === player){
+                angleInfo.textContent = `Угол: ${player.angle.toFixed(1)}`;
+                forceInfo.textContent = `Сила: ${player.force.toFixed(1)}`;
+            }
+            let windText = (wind > 0 ? ">>" : wind < 0 ? "<<" : "--");
+            windInfo.textContent = `Ветер: ${windText} ${Math.abs(wind * 10).toFixed(2)}`;
+            playerBonusInfo.textContent = `Бонусы: Топливо: ${player.fuel.toFixed(0)} | Мощь: ${player.powerShells} | Щит: ${player.shieldHealth} | Кассета: ${player.clusterShells}`;
+            aimingInfo.textContent = `Прицел(T): ${showAimingLine ? 'ВКЛ' : 'ВЫКЛ'}`;
+        }
+        
+        function showMessage(text, duration = null) { // ... (без изменений)
+            messageBox.innerHTML = text.replace(/\n/g, '<br>');
+            messageBox.classList.remove('hidden');
+            if(duration) setTimeout(() => { messageBox.classList.add('hidden'); }, duration);
+        }
+
+        function init() { // ... (без изменений)
+            if (!isResizing) resizeCanvas();
+            generateTerrain(); initSnow();
+            player = new Tank(Math.random() * (canvas.width/4) + 50, '#e63946', 1);
+            cpu = new Tank(canvas.width - Math.random()*(canvas.width/4) - 50, '#457b9d', -1);
+            projectile = null; explosions = []; bonuses = []; particles = [];
+            currentPlayer = player;
+            wind = (Math.random() - 0.5) * MAX_WIND;
+            gameState = 'PLAYING';
+            messageBox.classList.add('hidden');
+            updateUI();
+        }
+
+        function switchPlayer() { // ... (без изменений)
+            currentPlayer = (currentPlayer === player) ? cpu : player;
+            wind = (Math.random() - 0.5) * MAX_WIND;
+            if (gameState === 'PLAYING') spawnBonus();
+            updateUI();
+            if (currentPlayer === cpu && gameState === 'PLAYING') setTimeout(cpuTurn, 1000);
+        }
+
+        function simulateShot(angle, force) { // ... (без изменений)
+            const power = force/10, angleRad = (cpu.direction===1)?angle*Math.PI/180:(180-angle)*Math.PI/180;
+            let vx=Math.cos(angleRad)*power, vy=-Math.sin(angleRad)*power;
+            let simX=cpu.getTurretEnd().x, simY=cpu.getTurretEnd().y;
+            for (let t=0; t<500; t++) {
+                vx+=wind; vy+=GRAVITY; simX+=vx; simY+=vy;
+                const terrainY = (Math.round(simX)>=0 && Math.round(simX)<canvas.width)?terrain[Math.round(simX)]:canvas.height;
+                if (simY>terrainY) return {x:simX, y:simY};
+                if (simX<0 || simX>canvas.width) return null;
+            }
+            return null;
+        }
+        
+        function cpuTurn() { // ... (без изменений)
+            const roundedX = Math.round(cpu.x);
+            if (cpu.fuel > 20 && (cpu.y > terrain[roundedX] + 5 || (terrain[roundedX - 10] < cpu.y - 20 && terrain[roundedX + 10] < cpu.y - 20))) {
+                showMessage("CPU ищет позицию получше...", 1000);
+                cpu.move(player.x > cpu.x ? 10 : -10);
+                updateUI();
+                setTimeout(switchPlayer, 1500);
+                return;
+            }
+            showMessage("CPU думает...", 1000);
+            let bestShot = { angle: 0, force: 0, distance: Infinity };
+            for (let i = 0; i < 30; i++) {
+                const testAngle=Math.random()*90, testForce=Math.random()*80+20;
+                const landingPos=simulateShot(testAngle, testForce);
+                if (landingPos) {
+                    const distance=Math.sqrt(Math.pow(landingPos.x - player.x, 2) + Math.pow(landingPos.y - player.y, 2));
+                    if (distance < bestShot.distance) bestShot={angle: testAngle, force: testForce, distance: distance};
+                }
+            }
+            cpu.angle = bestShot.angle + (Math.random() - 0.5) * 5;
+            cpu.force = bestShot.force + (Math.random() - 0.5) * 10;
+            updateUI();
+            setTimeout(fire, 1500);
+        }
+
+        function fire() { // ... (без изменений)
+            if (projectile) return;
+            const startPos = currentPlayer.getTurretEnd();
+            const angleRad = (currentPlayer.direction===1)?currentPlayer.angle*Math.PI/180:(180-currentPlayer.angle)*Math.PI/180;
+            const power=currentPlayer.force/10, vx=Math.cos(angleRad)*power, vy=-Math.sin(angleRad)*power;
+            let isPowerfulShot = false, isClusterShot = false;
+            if (currentPlayer.powerShells > 0) {
+                currentPlayer.powerShells--; isPowerfulShot = true;
+            } else if (currentPlayer.clusterShells > 0) {
+                currentPlayer.clusterShells--; isClusterShot = true;
+            }
+            projectile = new Projectile(startPos.x, startPos.y, vx, vy, isPowerfulShot, isClusterShot);
+            updateUI();
+        }
+        
+        function checkGameOver() { // ... (без изменений)
+            if (gameState !== 'PLAYING') return;
+            if (player.health <= 0 || cpu.health <= 0) {
+                 gameState = 'GAMEOVER';
+                 let winner = player.health > 0 ? "Игрок" : "CPU";
+                 if(player.health <=0 && cpu.health <=0) winner = "Никто не";
+                 showMessage(`${winner} победил!\nНажмите 'R' или 🔄 для рестарта.`);
+            }
+        }
+
+        function checkCollisions() { // ... (без изменений)
+            if (!projectile) return;
+            const x=Math.round(projectile.x), y=Math.round(projectile.y);
+            for (let i=bonuses.length-1; i>=0; i--) {
+                const bonus=bonuses[i];
+                if (!bonus.onGround) continue;
+                const dist=Math.sqrt(Math.pow(projectile.x - bonus.x, 2) + Math.pow(projectile.y - bonus.y, 2));
+                if (dist < bonus.radius + 10) {
+                    if(bonus.type==='MOVE') currentPlayer.fuel+=50;
+                    if(bonus.type==='POWER_SHELL') currentPlayer.powerShells+=3;
+                    if(bonus.type==='SHIELD') currentPlayer.shieldHealth+=50;
+                    if(bonus.type==='CLUSTER') currentPlayer.clusterShells+=3;
+                    bonuses.splice(i, 1);
+                    updateUI();
+                }
+            }
+            if (x >= 0 && x < canvas.width && y > terrain[x]) {
+                if (projectile.isCluster) {
+                    for(let i = 0; i < 4; i++) {
+                        const offsetX = (Math.random() - 0.5) * 50, offsetY = (Math.random() - 0.5) * 50;
+                        explosions.push(new Explosion(projectile.x + offsetX, projectile.y + offsetY, false, 0.7));
+                    }
+                } else {
+                    explosions.push(new Explosion(projectile.x, projectile.y, projectile.isPowerful));
+                }
+                deformTerrain(projectile.x, projectile.y, projectile.isPowerful ? EXPLOSION_RADIUS*1.5 : EXPLOSION_RADIUS);
+                projectile = null; return;
+            }
+            if (projectile.x<0 || projectile.x>canvas.width || projectile.y>canvas.height+200) {
+                projectile = null; if (explosions.length === 0) setTimeout(switchPlayer, 1000);
+            }
+        }
+        
+        function drawAimingLine() { // ... (без изменений)
+            if (!showAimingLine || currentPlayer !== player || projectile || explosions.length > 0) return;
+            const startPos=player.getTurretEnd();
+            const angleRad=(player.direction===1)?player.angle*Math.PI/180:(180-player.angle)*Math.PI/180;
+            const power=player.force/10; let vx=Math.cos(angleRad)*power, vy=-Math.sin(angleRad)*power;
+            let simX=startPos.x, simY=startPos.y;
+            ctx.setLineDash([5, 10]); ctx.beginPath(); ctx.moveTo(simX, simY);
+            for (let t=0; t<200; t++) {
+                vy+=GRAVITY; simX+=vx; simY+=vy;
+                if (t%5===0) ctx.lineTo(simX, simY);
+                const terrainY=(Math.round(simX)>=0 && Math.round(simX)<canvas.width)?terrain[Math.round(simX)]:canvas.height;
+                if (simY > terrainY || simX < 0 || simX > canvas.width) break;
+            }
+            ctx.strokeStyle='rgba(255, 255, 255, 0.5)'; ctx.lineWidth=2; ctx.stroke(); ctx.setLineDash([]);
+        }
+
+        function gameLoop() { // ... (без изменений)
+            if (gameState==='START') {
+                 const startMessage = 'ontouchstart' in window 
+                    ? "Нажимайте кнопки для управления"
+                    : "Стрелки - Угол/Сила | Пробел - Выстрел\nA/D - Движение | T - Прицел | R - Рестарт";
+                 showMessage(`Игра Артиллерия\n\n${startMessage}\n\nНажмите для старта`);
+            } else if (gameState==='PLAYING' || gameState==='GAMEOVER') {
+                drawScene();
+                updateTerrainPhysics();
+                particles.forEach((p, i) => { p.update(); if (p.life < 0) particles.splice(i, 1); else p.draw(); });
+                bonuses.forEach(b => {b.update(); b.draw()});
+                drawAimingLine();
+                player.draw(); cpu.draw();
+                if (player.y > canvas.height+TANK_HEIGHT && player.health > 0) { player.health=0; checkGameOver(); }
+                if (cpu.y > canvas.height+TANK_HEIGHT && cpu.health > 0) { cpu.health=0; checkGameOver(); }
+                if (projectile) { projectile.update(); projectile.draw(); checkCollisions(); }
+                if (explosions.length > 0) {
+                    explosions.forEach(exp => { exp.update(); exp.draw(); });
+                    explosions = explosions.filter(exp => exp.life > 0);
+                    if (explosions.length === 0 && gameState === 'PLAYING' && !projectile) {
+                        setTimeout(switchPlayer, 1000);
+                    }
+                }
+            }
+            requestAnimationFrame(gameLoop);
+        }
+
+        // --- Обработка ввода ---
+        function handlePlayerAction(action) {
+            if (currentPlayer !== player || gameState !== 'PLAYING' || projectile || explosions.length > 0) return;
+            action();
+            updateUI();
+        }
+
+        function setupInputHandlers() {
+            // Клавиатура
+            window.addEventListener('keydown', e => {
+                if (e.code==='KeyR') { init(); return; }
+                if (gameState==='START' || gameState==='GAMEOVER') { init(); return; }
+                if (e.code==='KeyT') { showAimingLine = !showAimingLine; updateUI(); return; }
+                handlePlayerAction(() => {
+                    switch (e.code) {
+                        case 'ArrowUp': player.force=Math.min(100, player.force+1); break;
+                        case 'ArrowDown': player.force=Math.max(0, player.force-1); break;
+                        case 'ArrowLeft': player.angle=Math.max(0, player.angle-1); break;
+                        case 'ArrowRight': player.angle=Math.min(90, player.angle+1); break;
+                        case 'Space': fire(); break;
+                        case 'KeyA': player.move(-5); break;
+                        case 'KeyD': player.move(5); break;
+                    }
+                });
+            });
+
+            // Сенсорное управление
+            const controls = [
+                { id: 'move-left-btn', action: () => player.move(-2) },
+                { id: 'move-right-btn', action: () => player.move(2) },
+                { id: 'angle-down-btn', action: () => { player.angle = Math.max(0, player.angle - 1); } },
+                { id: 'angle-up-btn', action: () => { player.angle = Math.min(90, player.angle + 1); } },
+                { id: 'force-down-btn', action: () => { player.force = Math.max(0, player.force - 1); } },
+                { id: 'force-up-btn', action: () => { player.force = Math.min(100, player.force + 1); } },
+            ];
+
+            const startAction = (action) => {
+                if (actionInterval) clearInterval(actionInterval);
+                handlePlayerAction(action);
+                actionInterval = setInterval(() => handlePlayerAction(action), 100);
+            };
+
+            const stopAction = () => {
+                clearInterval(actionInterval);
+                actionInterval = null;
+            };
+
+            controls.forEach(control => {
+                const btn = document.getElementById(control.id);
+                btn.addEventListener('touchstart', (e) => { e.preventDefault(); startAction(control.action); }, { passive: false });
+                btn.addEventListener('touchend', stopAction);
+                btn.addEventListener('touchcancel', stopAction);
+            });
+
+            document.getElementById('fire-button').addEventListener('touchstart', (e) => { e.preventDefault(); handlePlayerAction(fire); });
+            document.getElementById('aim-toggle-btn').addEventListener('touchstart', (e) => { e.preventDefault(); showAimingLine = !showAimingLine; updateUI(); });
+            document.getElementById('restart-btn').addEventListener('touchstart', (e) => { e.preventDefault(); init(); });
+
+            // Для старта игры по клику на сообщение
+            messageBox.addEventListener('click', () => {
+                 if (gameState === 'START' || gameState === 'GAMEOVER') init();
+            });
+        }
+
+        function resizeCanvas() {
+            isResizing = true;
+            const container = document.querySelector('.game-container');
+            const wrapper = document.querySelector('.game-wrapper');
+            const aspectRatio = 16 / 9;
+            
+            let w = wrapper.clientWidth;
+            let h = wrapper.clientHeight;
+            
+            // Уменьшаем размер контейнера, чтобы освободить место для UI панелей
+            h -= (document.querySelector('.info-panel').offsetHeight + document.querySelector('.bonus-panel').offsetHeight);
+
+            if (w / h > aspectRatio) {
+                w = h * aspectRatio;
+            } else {
+                h = w / aspectRatio;
+            }
+            container.style.width = `${w}px`;
+            container.style.height = `${h}px`;
+            canvas.width = w; canvas.height = h;
+            isResizing = false;
+        }
+
+        window.addEventListener('resize', () => { init(); });
+        
+        setupInputHandlers();
+        init();
+        gameLoop();
+    </script>
+</body>
+</html>
