@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>Игра Артиллерия</title>
+    <title>Игра Танки 80</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
@@ -113,11 +113,11 @@
 <body>
 
     <div class="ui-panel">
-        <div id="player-info">Игрок HP: 100</div>
+        <div id="player-info">СССР 🛡️: 100</div>
         <div id="angle-info">Угол: 45</div>
         <div id="force-info">Сила: 50</div>
         <div id="wind-info">Ветер: 0.00</div>
-        <div id="cpu-info">CPU HP: 100</div>
+        <div id="cpu-info">USA 🛡️: 100</div>
     </div>
     <div class="ui-panel">
          <div id="player-bonus-info">Бонусы: Топливо: 100 | Мощь: 0 | Щит: 0 | Кассета: 0</div>
@@ -488,8 +488,8 @@
         
         function updateUI() {
             if(!player || !cpu) return;
-            playerInfo.textContent = `Игрок HP: ${player.health}`;
-            cpuInfo.textContent = `CPU HP: ${cpu.health}`;
+            playerInfo.textContent = `СССР HP: ${player.health}`;
+            cpuInfo.textContent = `USA 🛡️: ${cpu.health}`;
             if(currentPlayer === player){
                 angleInfo.textContent = `Угол: ${player.angle.toFixed(1)}`;
                 forceInfo.textContent = `Сила: ${player.force.toFixed(1)}`;
@@ -549,13 +549,13 @@
         function cpuTurn() {
             const roundedX = Math.round(cpu.x);
             if (cpu.fuel > 20 && (cpu.y > terrain[roundedX] + 5 || (terrain[roundedX - 10] < cpu.y - 20 && terrain[roundedX + 10] < cpu.y - 20))) {
-                showMessage("CPU ищет позицию получше...", 1000);
+                showMessage("Пендос ищет позицию получше...", 1000);
                 cpu.move(player.x > cpu.x ? 10 : -10);
                 updateUI();
                 setTimeout(switchPlayer, 1500);
                 return;
             }
-            showMessage("CPU думает...", 1000);
+            showMessage("Пендос думает...", 1000);
             let bestShot = { angle: 0, force: 0, distance: Infinity };
             for (let i = 0; i < 30; i++) {
                 const testAngle=Math.random()*90, testForce=Math.random()*80+20;
@@ -590,7 +590,7 @@
             if (gameState !== 'PLAYING') return;
             if (player.health <= 0 || cpu.health <= 0) {
                  gameState = 'GAMEOVER';
-                 let winner = player.health > 0 ? "Игрок" : "CPU";
+                 let winner = player.health > 0 ? "СССР" : "CPU";
                  if(player.health <=0 && cpu.health <=0) winner = "Никто не";
                  showMessage(`${winner} победил!\nНажмите 'R' или 🔄 для рестарта.`);
             }
