@@ -497,7 +497,6 @@
         
         function updateUI() {
             if(!player || !cpu) return;
-            // --- ИСПРАВЛЕНИЕ: Округляем все значения ---
             playerInfo.innerHTML = `СССР 🛡️: ${Math.round(player.health)}`;
             cpuInfo.innerHTML = `USA 🛡️: ${Math.round(cpu.health)}`;
 
@@ -506,7 +505,8 @@
                 forceInfo.textContent = `Сила: ${Math.round(player.force)}`;
             }
             let windText = (wind > 0 ? ">>" : wind < 0 ? "<<" : "--");
-            windInfo.textContent = `Ветер: ${windText} ${Math.round(Math.abs(wind * 100))}`;
+            const windStrength = Math.round((Math.abs(wind) / (MAX_WIND / 2)) * 10);
+            windInfo.textContent = `Ветер: ${windText} ${windStrength}`;
             playerBonusInfo.textContent = `Топливо: ${Math.round(player.fuel)} | Мощь: ${player.powerShells} | Щит: ${Math.round(player.shieldHealth)} | Кассета: ${player.clusterShells}`;
             aimingInfo.textContent = `Прицел(T): ${showAimingLine ? 'ВКЛ' : 'ВЫКЛ'}`;
         }
