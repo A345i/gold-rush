@@ -397,7 +397,10 @@
         // --- Функции ---
         function generateTerrain() {
             terrain = new Array(canvas.width).fill(canvas.height);
-            let y = canvas.height * 0.7;
+            const isPortrait = canvas.height > canvas.width;
+            const startY = isPortrait ? canvas.height * 0.6 : canvas.height * 0.7;
+            let y = startY;
+
             const roughness = 0.6;
             function displace(arr, start, end, magnitude) {
                 if (end - start < 2) return;
@@ -438,19 +441,29 @@
             for (let i = 0; i < SNOWFLAKE_COUNT; i++) {
                 snowflakes.push({
                     x: Math.random() * canvas.width, y: Math.random() * canvas.height,
-                    radius: Math.random() * 2 + 1, speed: Math.random() * 0.5 + 0.2
+                    radius: Math.random() * 2 + 1,
+                    baseSpeed: Math.random() * 0.5 + 0.2
                 });
             }
         }
 
         function drawAndUpdateSnow() {
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'; ctx.beginPath();
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.beginPath();
             for (const flake of snowflakes) {
-                flake.y += flake.speed; flake.x += wind * 20;
-                if (flake.y > canvas.height) { flake.y = -5; flake.x = Math.random() * canvas.width; }
+                const windFactor = wind / MAX_WIND;
+                flake.x += windFactor * 10;
+                flake.y += flake.baseSpeed + Math.abs(windFactor * 1.5);
+
+                if (flake.y > canvas.height) {
+                    flake.y = -5;
+                    flake.x = Math.random() * canvas.width;
+                }
                 if (flake.x > canvas.width) flake.x = 0;
                 if (flake.x < 0) flake.x = canvas.width;
-                ctx.moveTo(flake.x, flake.y); ctx.arc(flake.x, flake.y, flake.radius, 0, Math.PI * 2);
+                
+                ctx.moveTo(flake.x, flake.y);
+                ctx.arc(flake.x, flake.y, flake.radius, 0, Math.PI * 2);
             }
             ctx.fill();
         }
@@ -505,7 +518,7 @@
                 forceInfo.textContent = `Сила: ${Math.round(player.force)}`;
             }
             let windText = (wind > 0 ? ">>" : wind < 0 ? "<<" : "--");
-            const windStrength = Math.round((Math.abs(wind) / (MAX_WIND / 2)) * 10);
+            const windStrength = Math.round((Math.abs(wind) / MAX_WIND) * 10);
             windInfo.textContent = `Ветер: ${windText} ${windStrength}`;
             playerBonusInfo.textContent = `Топливо: ${Math.round(player.fuel)} | Мощь: ${player.powerShells} | Щит: ${Math.round(player.shieldHealth)} | Кассета: ${player.clusterShells}`;
             aimingInfo.textContent = `Прицел(T): ${showAimingLine ? 'ВКЛ' : 'ВЫКЛ'}`;
@@ -538,7 +551,11 @@
 
         function switchPlayer() {
             currentPlayer = (currentPlayer === player) ? cpu : player;
-            wind = (Math.random() - 0.5) * MAX_WIND;
+            // --- ИСПРАВЛЕНИЕ: Ветер меняется не каждый ход ---
+            if (Math.random() < 0.5) { // 50% шанс на смену ветра
+                wind = (Math.random() - 0.5) * MAX_WIND;
+                showMessage("Ветер изменился!", 1500); // Сообщаем игроку
+            }
             if (gameState === 'PLAYING') spawnBonus();
             updateUI();
             if (currentPlayer === cpu && gameState === 'PLAYING') setTimeout(cpuTurn, 1000);
