@@ -1,0 +1,341 @@
+/* --- Базовые стили и сброс --- */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #1a2a6c, #b21f1f, #1a2a6c);
+    color: #fff;
+    padding: clamp(4px, 1vw, 8px);
+}
+
+/* --- Обертка игры --- */
+.game-wrapper {
+    width: 100%;
+    max-width: 650px; /* Еще немного уменьшена ширина */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: clamp(6px, 1vh, 12px);
+}
+
+/* --- Заголовок --- */
+.game-title {
+    font-size: clamp(1.2rem, 3.5vw, 1.8rem);
+    text-align: center;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    margin: 0;
+}
+
+/* --- Инструкции --- */
+.instructions {
+    font-size: clamp(0.7rem, 1.8vw, 0.85rem);
+    text-align: center;
+    background-color: rgba(0, 0, 0, 0.3);
+    padding: clamp(5px, 1vh, 8px) clamp(8px, 2vw, 12px);
+    border-radius: 8px;
+    max-width: 95%;
+}
+
+.instructions .player-highlight {
+    font-weight: bold;
+    color: #ff4d4d;
+}
+
+/* --- Основная игровая область --- */
+.game-area {
+    position: relative; /* Для позиционирования дочерних absolute элементов */
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: clamp(5px, 1vw, 8px);
+}
+
+/* --- Игровое поле --- */
+#game-container {
+    position: relative;
+    width: 85vw;
+    height: 55vh; /* Еще немного уменьшена высота */
+    max-width: 480px; /* Уменьшена максимальная ширина */
+    max-height: 350px; /* Уменьшена максимальная высота */
+    min-width: 240px;
+    min-height: 210px;
+    border: 2px solid #fff;
+    border-radius: 8px;
+    background-color: #0d1b2a;
+    box-shadow: 0 5px 10px rgba(0,0,0,0.3);
+    overflow: hidden;
+}
+
+#game-canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+/* --- Кнопка перезапуска (внутри игрового поля) --- */
+.restart-button {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    font-size: 1.2rem;
+    font-weight: bold;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid #fff;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    transition: all 0.2s ease;
+    z-index: 10; /* Поверх canvas */
+}
+
+.restart-button:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+}
+
+.restart-button:active {
+    transform: scale(0.95);
+}
+
+/* --- Информация об уровне (внутри игрового поля) --- */
+.level-info {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    font-weight: bold;
+    font-size: clamp(0.8rem, 2vw, 1rem);
+    background-color: rgba(0, 0, 0, 0.4);
+    padding: 3px 10px;
+    border-radius: 12px;
+    backdrop-filter: blur(2px);
+    z-index: 10;
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+/* --- Виртуальные кнопки управления --- */
+.mobile-controls {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: clamp(12px, 2.5vh, 20px);
+}
+
+.mobile-controls--side {
+    position: static;
+    height: auto;
+    padding: 8px 0;
+}
+
+.control-btn {
+    width: clamp(40px, 8vw, 55px);
+    height: clamp(40px, 8vw, 55px);
+    background-color: rgba(255, 255, 255, 0.9);
+    border: 2px solid #fff;
+    border-radius: 50%;
+    font-size: clamp(16px, 3.5vw, 22px);
+    font-weight: bold;
+    color: #333;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    user-select: none;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.2);
+    transition: all 0.1s ease;
+    pointer-events: auto;
+}
+
+.control-btn:active {
+    background-color: rgba(255, 255, 255, 1);
+    transform: scale(0.9);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+}
+
+/* --- Счет --- */
+.score-board {
+    display: flex;
+    justify-content: space-around;
+    width: 100%;
+    max-width: 95%;
+    flex-wrap: wrap;
+    gap: clamp(3px, 0.8vw, 6px);
+}
+
+.score-item {
+    padding: clamp(4px, 1vh, 6px) clamp(8px, 1.8vw, 12px);
+    border-radius: 18px;
+    color: white;
+    font-weight: bold;
+    font-size: clamp(0.65rem, 1.6vw, 0.85rem);
+    text-align: center;
+    min-width: clamp(70px, 10vw, 100px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    transition: opacity 0.3s ease;
+}
+
+.score-item--dead {
+    opacity: 0.5;
+}
+
+/* --- Контейнер для всплывающих уведомлений --- */
+.toast-container {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 90%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    z-index: 100;
+    pointer-events: none; /* Не мешает взаимодействию с игрой */
+}
+
+/* --- Стиль всплывающего уведомления --- */
+.toast {
+    background-color: rgba(0, 0, 0, 0.7);
+    color: white;
+    padding: 10px 20px;
+    border-radius: 20px;
+    font-weight: bold;
+    text-align: center;
+    opacity: 0;
+    transform: translateY(20px);
+    animation: toast-fadein 0.3s forwards, toast-fadeout 0.5s forwards 2.5s;
+    backdrop-filter: blur(5px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    max-width: 90%;
+    word-wrap: break-word;
+}
+
+@keyframes toast-fadein {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes toast-fadeout {
+    to {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+}
+
+/* --- Адаптация для мобильных устройств и планшетов --- */
+@media (max-width: 1024px), (max-height: 500px) {
+    body {
+        padding: clamp(2px, 0.8vw, 4px);
+    }
+
+    .game-wrapper {
+        gap: clamp(5px, 0.8vh, 10px);
+        max-width: 95vw; /* Ограничиваем ширину на маленьких экранах */
+    }
+
+    .game-title {
+        font-size: clamp(1.1rem, 4vw, 1.6rem);
+    }
+
+    .instructions {
+        font-size: clamp(0.65rem, 2vw, 0.8rem);
+        padding: clamp(4px, 1vh, 6px) clamp(6px, 2vw, 10px);
+    }
+
+    .game-area {
+        gap: clamp(3px, 0.8vw, 5px);
+    }
+
+    #game-container {
+        width: 82vw;
+        height: 52vh;
+        max-width: 90vw;
+        max-height: 330px;
+    }
+
+    .mobile-controls {
+        display: flex;
+    }
+
+    .control-btn {
+        width: clamp(38px, 7.5vw, 50px);
+        height: clamp(38px, 7.5vw, 50px);
+        font-size: clamp(15px, 3vw, 20px);
+    }
+
+    .score-board {
+        gap: clamp(2px, 0.6vw, 4px);
+    }
+
+    .score-item {
+        padding: clamp(3px, 0.8vh, 5px) clamp(6px, 1.5vw, 10px);
+        min-width: clamp(65px, 9vw, 85px);
+        font-size: clamp(0.6rem, 1.5vw, 0.75rem);
+        border-radius: 15px;
+    }
+    
+    .restart-button {
+        width: 28px;
+        height: 28px;
+        font-size: 1rem;
+        top: 8px;
+        left: 8px;
+    }
+    
+    .level-info {
+        font-size: clamp(0.75rem, 1.8vw, 0.9rem);
+        top: 8px;
+        right: 8px;
+    }
+}
+
+/* --- Для очень маленьких экранов --- */
+@media (max-width: 480px) {
+    .instructions {
+        font-size: 0.6rem;
+        padding: 4px 6px;
+    }
+
+    #game-container {
+        height: 50vh;
+        max-height: 300px;
+    }
+
+    .mobile-controls {
+        gap: 12px;
+    }
+
+    .control-btn {
+        width: 36px;
+        height: 36px;
+        font-size: 17px;
+    }
+
+    .score-item {
+        min-width: 70px;
+        font-size: 0.65rem;
+    }
+}

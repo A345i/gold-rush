@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
+    <title>Змейка - Многопользовательская Гонка</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-wrapper">
+        <h1 class="game-title">Змейка - Гонка</h1>
+        
+        <div class="instructions">
+            <p>Управляйте <span class="player-highlight">красной</span> змеей стрелками или кнопками. 
+            Если не двигаться 2 секунды, она будет управляться автоматически.</p>
+        </div>
+
+        <div class="game-area">
+            <div id="mobile-controls-left" class="mobile-controls mobile-controls--side mobile-controls--left">
+                <button id="btn-up" class="control-btn control-btn--up" aria-label="Вверх">↑</button>
+                <button id="btn-down" class="control-btn control-btn--down" aria-label="Вниз">↓</button>
+            </div>
+
+            <div id="game-container">
+                <canvas id="game-canvas"></canvas>
+                <!-- Кнопка перезапуска внутри игрового поля -->
+                <button id="restart-button" class="restart-button">↻</button>
+                <div id="level-info" class="level-info">Уровень: 1</div>
+                <!-- Контейнер для всплывающих уведомлений -->
+                <div id="toast-container" class="toast-container"></div>
+            </div>
+            
+            <div id="mobile-controls-right" class="mobile-controls mobile-controls--side mobile-controls--right">
+                <button id="btn-left" class="control-btn control-btn--left" aria-label="Влево">←</button>
+                <button id="btn-right" class="control-btn control-btn--right" aria-label="Вправо">→</button>
+            </div>
+        </div>
+
+        <div id="score-board" class="score-board">
+            <!-- Счет будет обновляться JS -->
+        </div>
+        
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
