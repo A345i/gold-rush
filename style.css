@@ -14,12 +14,16 @@ body {
     background: linear-gradient(135deg, #1a2a6c, #b21f1f, #1a2a6c);
     color: #fff;
     padding: clamp(4px, 1vw, 8px);
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
 }
 
 /* --- Обертка игры --- */
 .game-wrapper {
     width: 100%;
-    max-width: 650px; /* Еще немного уменьшена ширина */
+    max-width: 650px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -51,21 +55,20 @@ body {
 
 /* --- Основная игровая область --- */
 .game-area {
-    position: relative; /* Для позиционирования дочерних absolute элементов */
+    position: relative;
     width: 100%;
     display: flex;
     justify-content: center;
     align-items: center;
-    gap: clamp(5px, 1vw, 8px);
 }
 
 /* --- Игровое поле --- */
 #game-container {
     position: relative;
     width: 85vw;
-    height: 55vh; /* Еще немного уменьшена высота */
-    max-width: 480px; /* Уменьшена максимальная ширина */
-    max-height: 350px; /* Уменьшена максимальная высота */
+    height: 55vh;
+    max-width: 480px;
+    max-height: 350px;
     min-width: 240px;
     min-height: 210px;
     border: 2px solid #fff;
@@ -79,17 +82,25 @@ body {
     display: block;
     width: 100%;
     height: 100%;
+    cursor: pointer;
 }
 
-/* --- Кнопка перезапуска (внутри игрового поля) --- */
-.restart-button {
+/* --- Панель кнопок в правом верхнем углу --- */
+.top-right-panel {
     position: absolute;
-    top: 10px;
-    left: 10px;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    gap: 5px; /* Расстояние между кнопками */
+    z-index: 10;
+}
+
+/* --- Стиль кнопок в панели --- */
+.panel-button {
     width: 30px;
     height: 30px;
     padding: 0;
-    font-size: 1.2rem;
+    font-size: 1rem;
     font-weight: bold;
     display: flex;
     justify-content: center;
@@ -98,26 +109,25 @@ body {
     background: rgba(255, 255, 255, 0.2);
     color: white;
     border: 1px solid #fff;
-    border-radius: 50%;
+    border-radius: 5px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.2);
     transition: all 0.2s ease;
-    z-index: 10; /* Поверх canvas */
 }
 
-.restart-button:hover {
+.panel-button:hover {
     background: rgba(255, 255, 255, 0.3);
     transform: scale(1.1);
 }
 
-.restart-button:active {
+.panel-button:active {
     transform: scale(0.95);
 }
 
-/* --- Информация об уровне (внутри игрового поля) --- */
+/* --- Информация об уровне --- */
 .level-info {
     position: absolute;
     top: 10px;
-    right: 10px;
+    left: 10px; /* Перенесли влево */
     font-weight: bold;
     font-size: clamp(0.8rem, 2vw, 1rem);
     background-color: rgba(0, 0, 0, 0.4);
@@ -132,45 +142,6 @@ body {
     0% { transform: scale(1); }
     50% { transform: scale(1.05); }
     100% { transform: scale(1); }
-}
-
-/* --- Виртуальные кнопки управления --- */
-.mobile-controls {
-    display: none;
-    flex-direction: column;
-    justify-content: center;
-    gap: clamp(12px, 2.5vh, 20px);
-}
-
-.mobile-controls--side {
-    position: static;
-    height: auto;
-    padding: 8px 0;
-}
-
-.control-btn {
-    width: clamp(40px, 8vw, 55px);
-    height: clamp(40px, 8vw, 55px);
-    background-color: rgba(255, 255, 255, 0.9);
-    border: 2px solid #fff;
-    border-radius: 50%;
-    font-size: clamp(16px, 3.5vw, 22px);
-    font-weight: bold;
-    color: #333;
-    cursor: pointer;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    user-select: none;
-    box-shadow: 0 3px 6px rgba(0,0,0,0.2);
-    transition: all 0.1s ease;
-    pointer-events: auto;
-}
-
-.control-btn:active {
-    background-color: rgba(255, 255, 255, 1);
-    transform: scale(0.9);
-    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
 /* --- Счет --- */
@@ -211,7 +182,7 @@ body {
     align-items: center;
     gap: 10px;
     z-index: 100;
-    pointer-events: none; /* Не мешает взаимодействию с игрой */
+    pointer-events: none;
 }
 
 /* --- Стиль всплывающего уведомления --- */
@@ -245,6 +216,82 @@ body {
     }
 }
 
+/* --- Модальное окно консоли --- */
+.console-modal {
+    display: none; /* Скрыто по умолчанию */
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(3px);
+}
+
+/* --- Содержимое модального окна --- */
+.console-modal-content {
+    background-color: #1e1e1e;
+    margin: 5% auto;
+    padding: 0;
+    border: 2px solid #444;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 600px;
+    height: 70vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 16px rgba(0,0,0,0.5);
+    color: #d4d4d4;
+    font-family: 'Courier New', Consolas, monospace;
+}
+
+/* --- Заголовок консоли --- */
+.console-header {
+    padding: 15px 20px;
+    background-color: #333;
+    color: #fff;
+    border-bottom: 1px solid #444;
+    border-radius: 8px 8px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.console-title {
+    font-size: 1.2rem;
+    font-weight: bold;
+}
+
+.console-close {
+    color: #aaa;
+    font-size: 2rem;
+    font-weight: bold;
+    cursor: pointer;
+    padding: 0 5px;
+}
+
+.console-close:hover,
+.console-close:focus {
+    color: #fff;
+}
+
+/* --- Область логов --- */
+.console-log {
+    flex-grow: 1;
+    padding: 15px;
+    overflow-y: auto;
+    background-color: #2d2d30;
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.console-log p {
+    margin: 5px 0;
+    padding: 3px 0;
+    border-bottom: 1px dotted #3a3a3a;
+}
+
 /* --- Адаптация для мобильных устройств и планшетов --- */
 @media (max-width: 1024px), (max-height: 500px) {
     body {
@@ -253,7 +300,7 @@ body {
 
     .game-wrapper {
         gap: clamp(5px, 0.8vh, 10px);
-        max-width: 95vw; /* Ограничиваем ширину на маленьких экранах */
+        max-width: 95vw;
     }
 
     .game-title {
@@ -265,25 +312,11 @@ body {
         padding: clamp(4px, 1vh, 6px) clamp(6px, 2vw, 10px);
     }
 
-    .game-area {
-        gap: clamp(3px, 0.8vw, 5px);
-    }
-
     #game-container {
         width: 82vw;
         height: 52vh;
         max-width: 90vw;
         max-height: 330px;
-    }
-
-    .mobile-controls {
-        display: flex;
-    }
-
-    .control-btn {
-        width: clamp(38px, 7.5vw, 50px);
-        height: clamp(38px, 7.5vw, 50px);
-        font-size: clamp(15px, 3vw, 20px);
     }
 
     .score-board {
@@ -297,18 +330,22 @@ body {
         border-radius: 15px;
     }
     
-    .restart-button {
+    .panel-button {
         width: 28px;
         height: 28px;
         font-size: 1rem;
         top: 8px;
-        left: 8px;
     }
     
     .level-info {
         font-size: clamp(0.75rem, 1.8vw, 0.9rem);
         top: 8px;
-        right: 8px;
+        left: 8px;
+    }
+    
+    .console-modal-content {
+        height: 80vh;
+        margin: 2% auto;
     }
 }
 
@@ -324,18 +361,21 @@ body {
         max-height: 300px;
     }
 
-    .mobile-controls {
-        gap: 12px;
-    }
-
-    .control-btn {
-        width: 36px;
-        height: 36px;
-        font-size: 17px;
-    }
-
     .score-item {
         min-width: 70px;
         font-size: 0.65rem;
+    }
+    
+    .console-header {
+        padding: 10px 15px;
+    }
+    
+    .console-title {
+        font-size: 1rem;
+    }
+    
+    .console-log {
+        padding: 10px;
+        font-size: 0.75rem;
     }
 }

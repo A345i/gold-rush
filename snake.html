@@ -11,33 +11,38 @@
         <h1 class="game-title">Змейка - Гонка</h1>
         
         <div class="instructions">
-            <p>Управляйте <span class="player-highlight">красной</span> змеей стрелками или кнопками. 
-            Если не двигаться 2 секунды, она будет управляться автоматически.</p>
+            <p>Управляйте <span class="player-highlight">красной</span> змеей перетаскиванием мыши/пальца. 
+            Она будет стремиться к курсору, пока вы держите кнопку.</p>
         </div>
 
         <div class="game-area">
-            <div id="mobile-controls-left" class="mobile-controls mobile-controls--side mobile-controls--left">
-                <button id="btn-up" class="control-btn control-btn--up" aria-label="Вверх">↑</button>
-                <button id="btn-down" class="control-btn control-btn--down" aria-label="Вниз">↓</button>
-            </div>
-
             <div id="game-container">
                 <canvas id="game-canvas"></canvas>
-                <!-- Кнопка перезапуска внутри игрового поля -->
-                <button id="restart-button" class="restart-button">↻</button>
+                <!-- Панель с кнопками в правом верхнем углу -->
+                <div class="top-right-panel">
+                    <button id="console-toggle" class="panel-button">☰</button>
+                    <button id="restart-button" class="panel-button">↻</button>
+                </div>
                 <div id="level-info" class="level-info">Уровень: 1</div>
-                <!-- Контейнер для всплывающих уведомлений -->
                 <div id="toast-container" class="toast-container"></div>
-            </div>
-            
-            <div id="mobile-controls-right" class="mobile-controls mobile-controls--side mobile-controls--right">
-                <button id="btn-left" class="control-btn control-btn--left" aria-label="Влево">←</button>
-                <button id="btn-right" class="control-btn control-btn--right" aria-label="Вправо">→</button>
             </div>
         </div>
 
         <div id="score-board" class="score-board">
             <!-- Счет будет обновляться JS -->
+        </div>
+        
+        <!-- Всплывающее окно консоли -->
+        <div id="console-modal" class="console-modal">
+            <div class="console-modal-content">
+                <div class="console-header">
+                    <span class="console-title">Игровая Консоль</span>
+                    <span id="console-close" class="console-close">&times;</span>
+                </div>
+                <div id="console-log" class="console-log">
+                    <!-- Логи будут добавляться сюда -->
+                </div>
+            </div>
         </div>
         
     </div>
