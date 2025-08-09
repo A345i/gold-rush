@@ -3,22 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
-    <title>Змейка - Многопользовательская Гонка</title>
+    <title>Змейка - Гонка с Кометой</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="game-wrapper">
-        <h1 class="game-title">Змейка - Гонка</h1>
+        <h1 class="game-title">Змейка - Гонка с Кометой</h1>
         
         <div class="instructions">
             <p>Управляйте <span class="player-highlight">красной</span> змеей перетаскиванием мыши/пальца. 
-            Она будет стремиться к курсору, пока вы держите кнопку.</p>
+            Она будет стремиться повторить путь вашей "кометы".</p>
         </div>
 
         <div class="game-area">
             <div id="game-container">
                 <canvas id="game-canvas"></canvas>
-                <!-- Панель с кнопками в правом верхнем углу -->
                 <div class="top-right-panel">
                     <button id="console-toggle" class="panel-button">☰</button>
                     <button id="restart-button" class="panel-button">↻</button>
@@ -32,7 +31,6 @@
             <!-- Счет будет обновляться JS -->
         </div>
         
-        <!-- Всплывающее окно консоли -->
         <div id="console-modal" class="console-modal">
             <div class="console-modal-content">
                 <div class="console-header">

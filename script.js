@@ -8,8 +8,11 @@ const CONFIG = {
     SNAKE_COLORS: ['red', 'blue', 'green', 'orange'],
     PLAYER_SNAKE_INDEX: 0,
     INTERPOLATION_STEPS: 5,
-    // Настройки для нового управления
-    PLAYER_STEER_STRENGTH: 0.7, // Насколько сильно игрок влияет на направление (0-1)
+    // Настройки для газового следа
+    TRAIL_SEGMENT_LIFETIME: 1200,
+    TRAIL_UPDATE_INTERVAL: 30,
+    TRAIL_POINT_SPACING: 3,
+    TRAIL_MAX_POINTS_PER_SEGMENT: 200,
 };
 
 // --- Глобальные переменные ---
@@ -28,12 +31,15 @@ let aliveSnakes = 4;
 let gridWidth, gridHeight;
 let interpolationStep = 0;
 
-// --- Для нового управления ---
 let isDragging = false;
 let dragX = 0;
 let dragY = 0;
+let lastTrailUpdate = 0;
 
-// --- Для консоли ---
+// --- Для газового следа ---
+let trailSegments = []; 
+let currentTrailSegment = null;
+
 let consoleLogs = [];
 let consoleOpen = false;
 
@@ -50,13 +56,12 @@ class Snake {
         ];
         this.direction = initialDirection;
         this.newDirection = initialDirection;
-        // false означает, что AI управляет змеей по умолчанию
-        // true будет означать, что игрок начал управлять этой змеей
         this.playerControlled = false; 
         this.grow = false;
         this.alive = true;
         this.visualHead = { x: startX, y: startY };
         this.nextHead = { x: startX, y: startY };
+        this.desiredDirection = null;
     }
 
     setDirection(newDir) {
@@ -71,50 +76,100 @@ class Snake {
         }
     }
 
-     // Новая функция для установки направления с учетом силы влияния
-     setDirectionTowards(targetX, targetY, canvasWidth, canvasHeight) {
+    setDesiredDirectionTowards(targetX, targetY, canvasWidth, canvasHeight) {
         if (!this.alive) return;
         
         const head = this.body[0];
-        // Преобразуем координаты пикселей в координаты сетки
         const targetGridX = Math.floor((targetX / canvasWidth) * gridWidth);
         const targetGridY = Math.floor((targetY / canvasHeight) * gridHeight);
         
-        // Определяем желаемое направление движения
         const dx = targetGridX - head.x;
         const dy = targetGridY - head.y;
         
-        // Если мы уже находимся в целевой клетке или очень близко, не меняем направление
         if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) {
             return;
         }
         
         let preferredDir = null;
         
-        // Определяем приоритетное направление
         if (Math.abs(dx) > Math.abs(dy)) {
-            // Движение по горизонтали имеет приоритет
             preferredDir = dx > 0 ? 'RIGHT' : 'LEFT';
         } else {
-            // Движение по вертикали имеет приоритет
             preferredDir = dy > 0 ? 'DOWN' : 'UP';
         }
         
-        // Проверяем, не является ли новое направление запрещенным (180 градусов)
+        this.desiredDirection = preferredDir;
+    }
+
+    steerTowardsDesired() {
+        if (!this.alive || !this.desiredDirection) return;
+        
+        if (this.direction === this.desiredDirection) {
+            return;
+        }
+        
         const isOpposite = (
-            (this.direction === 'UP' && preferredDir === 'DOWN') ||
-            (this.direction === 'DOWN' && preferredDir === 'UP') ||
-            (this.direction === 'LEFT' && preferredDir === 'RIGHT') ||
-            (this.direction === 'RIGHT' && preferredDir === 'LEFT')
+            (this.direction === 'UP' && this.desiredDirection === 'DOWN') ||
+            (this.direction === 'DOWN' && this.desiredDirection === 'UP') ||
+            (this.direction === 'LEFT' && this.desiredDirection === 'RIGHT') ||
+            (this.direction === 'RIGHT' && this.desiredDirection === 'LEFT')
         );
         
-        // Если направление не противоположное, устанавливаем его
         if (!isOpposite) {
-            this.newDirection = preferredDir;
+            this.setDirection(this.desiredDirection);
+            return;
         }
-        // Если противоположное, мы не меняем направление, змея продолжит движение
-        // Можно добавить логику для выбора одного из двух оставшихся направлений,
-        // но для простоты оставим текущее.
+        
+        let safeDirs = [];
+        if (this.direction === 'UP' || this.direction === 'DOWN') {
+            safeDirs = ['LEFT', 'RIGHT'];
+        } else {
+            safeDirs = ['UP', 'DOWN'];
+        }
+        
+        this.setDirection(safeDirs[0]);
+    }
+
+    steerTowardsPoint(targetX, targetY, canvasWidth, canvasHeight) {
+         if (!this.alive) return;
+         
+         const head = this.body[0];
+         const targetGridX = Math.floor((targetX / canvasWidth) * gridWidth);
+         const targetGridY = Math.floor((targetY / canvasHeight) * gridHeight);
+         
+         if (head.x === targetGridX && head.y === targetGridY) {
+             return;
+         }
+         
+         const dx = targetGridX - head.x;
+         const dy = targetGridY - head.y;
+         
+         let preferredDir = null;
+         
+         if (Math.abs(dx) > Math.abs(dy)) {
+             preferredDir = dx > 0 ? 'RIGHT' : 'LEFT';
+         } else {
+             preferredDir = dy > 0 ? 'DOWN' : 'UP';
+         }
+         
+         const isOpposite = (
+             (this.direction === 'UP' && preferredDir === 'DOWN') ||
+             (this.direction === 'DOWN' && preferredDir === 'UP') ||
+             (this.direction === 'LEFT' && preferredDir === 'RIGHT') ||
+             (this.direction === 'RIGHT' && preferredDir === 'LEFT')
+         );
+         
+         if (!isOpposite) {
+             this.setDirection(preferredDir);
+         } else {
+             let safeDirs = [];
+             if (this.direction === 'UP' || this.direction === 'DOWN') {
+                 safeDirs = ['LEFT', 'RIGHT'];
+             } else {
+                 safeDirs = ['UP', 'DOWN'];
+             }
+             this.setDirection(safeDirs[0]);
+         }
     }
 
     move() {
@@ -230,7 +285,6 @@ class Snake {
         }
     }
     
-    // Метод для логирования с указанием цвета змеи
     log(message) {
         addToConsole(`[${this.color.toUpperCase()}] ${message}`);
     }
@@ -254,18 +308,14 @@ function initGame() {
         });
     }
     
-    // Инициализация консоли
     initConsole();
     
-    // Добавляем обработчики событий для нового управления
     if (canvas) {
-        // Мыши
         canvas.addEventListener('mousedown', handleMouseDown);
         canvas.addEventListener('mousemove', handleMouseMove);
         canvas.addEventListener('mouseup', handleMouseUp);
-        canvas.addEventListener('mouseleave', handleMouseUp); // На случай, если мышь вышла за пределы canvas
+        canvas.addEventListener('mouseleave', handleMouseUp);
         
-        // Сенсорные экраны
         canvas.addEventListener('touchstart', handleTouchStart);
         canvas.addEventListener('touchmove', handleTouchMove);
         canvas.addEventListener('touchend', handleTouchEnd);
@@ -299,7 +349,7 @@ function handleMouseDown(event) {
     dragY = event.clientY - rect.top;
     
     startPlayerControl(dragX, dragY);
-    event.preventDefault(); // Предотвращаем выделение текста
+    event.preventDefault();
 }
 
 function handleMouseMove(event) {
@@ -310,6 +360,11 @@ function handleMouseMove(event) {
     dragY = event.clientY - rect.top;
     
     updatePlayerDirection(dragX, dragY);
+    const now = Date.now();
+    if (now - lastTrailUpdate > CONFIG.TRAIL_UPDATE_INTERVAL) {
+        addTrailPoint(dragX, dragY);
+        lastTrailUpdate = now;
+    }
     event.preventDefault();
 }
 
@@ -325,7 +380,7 @@ function handleMouseUp(event) {
 function handleTouchStart(event) {
     if (gameOver) return;
     
-    event.preventDefault(); // Предотвращаем масштабирование и прокрутку
+    event.preventDefault();
     
     isDragging = true;
     const rect = canvas.getBoundingClientRect();
@@ -347,6 +402,11 @@ function handleTouchMove(event) {
     dragY = touch.clientY - rect.top;
     
     updatePlayerDirection(dragX, dragY);
+    const now = Date.now();
+    if (now - lastTrailUpdate > CONFIG.TRAIL_UPDATE_INTERVAL) {
+        addTrailPoint(dragX, dragY);
+        lastTrailUpdate = now;
+    }
 }
 
 function handleTouchEnd(event) {
@@ -366,14 +426,14 @@ function startPlayerControl(x, y) {
     updatePlayerStatus('красной (управление)');
     addToConsole("Игрок начал управление красной змеей");
     updatePlayerDirection(x, y);
+    startNewTrailSegment(x, y);
 }
 
 function updatePlayerDirection(x, y) {
     const playerSnake = snakes[CONFIG.PLAYER_SNAKE_INDEX];
     if (!playerSnake || !playerSnake.alive || !playerSnake.playerControlled) return;
 
-    // Используем новую функцию для установки направления
-    playerSnake.setDirectionTowards(x, y, canvas.width, canvas.height);
+    playerSnake.setDesiredDirectionTowards(x, y, canvas.width, canvas.height);
 }
 
 function stopPlayerControl() {
@@ -381,9 +441,110 @@ function stopPlayerControl() {
     if (!playerSnake || !playerSnake.alive) return;
 
     playerSnake.playerControlled = false;
+    playerSnake.desiredDirection = null;
     updatePlayerStatus('красной (AI)');
     addToConsole("Управление красной змеей возвращено AI");
+    finishTrailSegment();
 }
+
+// --- Работа с газовым следом ---
+function startNewTrailSegment(x, y) {
+    finishTrailSegment();
+    currentTrailSegment = {
+        points: [{x, y, timestamp: Date.now()}],
+        timestamp: Date.now()
+    };
+}
+
+function addTrailPoint(x, y) {
+    if (currentTrailSegment) {
+        const lastPoint = currentTrailSegment.points[currentTrailSegment.points.length - 1];
+        const dx = x - lastPoint.x;
+        const dy = y - lastPoint.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        
+        if (dist >= CONFIG.TRAIL_POINT_SPACING) {
+            currentTrailSegment.points.push({x, y, timestamp: Date.now()});
+            
+            if (currentTrailSegment.points.length > CONFIG.TRAIL_MAX_POINTS_PER_SEGMENT) {
+                currentTrailSegment.points.shift();
+            }
+        }
+    }
+}
+
+function finishTrailSegment() {
+    if (currentTrailSegment && currentTrailSegment.points.length > 1) {
+        trailSegments.push(currentTrailSegment);
+    }
+    currentTrailSegment = null;
+}
+
+function updateTrail() {
+    const now = Date.now();
+    trailSegments = trailSegments.filter(segment => (now - segment.timestamp) < CONFIG.TRAIL_SEGMENT_LIFETIME);
+    
+    if (currentTrailSegment) {
+        currentTrailSegment.timestamp = now;
+        if (currentTrailSegment.points.length > 0) {
+             currentTrailSegment.points[currentTrailSegment.points.length - 1].timestamp = now;
+        }
+    }
+}
+
+function drawTrail() {
+    const now = Date.now();
+    
+    const drawSegment = (points, life, isCurrent) => {
+        if (points.length < 2) return;
+
+        for (let i = 0; i < points.length; i++) {
+            const point = points[i];
+            const pointAge = now - point.timestamp;
+            const pointLife = Math.max(0, 1 - pointAge / CONFIG.TRAIL_SEGMENT_LIFETIME);
+            
+            const alpha = life * pointLife;
+            
+            if (alpha <= 0) continue;
+
+            // --- Изменено: теперь хвост тонкий в начале и толстый в конце ---
+            const maxSize = 6;
+            const minSize = 1;
+            const sizeRatio = i / points.length;
+            // Переворачиваем соотношение
+            const reversedSizeRatio = 1 - sizeRatio;
+            // Применяем перевернутое соотношение к формуле радиуса
+            const radius = maxSize - (maxSize - minSize) * reversedSizeRatio;
+
+            const hue = 190;
+            const saturation = 80 + 20 * reversedSizeRatio; // Насыщенность тоже адаптируем
+            const lightness = 70 + 10 * reversedSizeRatio;  // Яркость тоже адаптируем
+            
+            ctx.beginPath();
+            for (let j = 0; j < 3; j++) {
+                const glowRadius = radius * (1 + j * 0.3);
+                const glowAlpha = alpha * (0.3 / (j + 1));
+                ctx.arc(point.x, point.y, glowRadius, 0, Math.PI * 2);
+                ctx.fillStyle = `hsla(${hue}, ${saturation}%, ${lightness}%, ${glowAlpha})`;
+                ctx.fill();
+            }
+        }
+    };
+
+    trailSegments.forEach(segment => {
+        const age = now - segment.timestamp;
+        const life = Math.max(0, 1 - age / CONFIG.TRAIL_SEGMENT_LIFETIME);
+        
+        if (life > 0) {
+            drawSegment(segment.points, life, false);
+        }
+    });
+    
+    if (currentTrailSegment) {
+        drawSegment(currentTrailSegment.points, 1, true);
+    }
+}
+
 
 // --- Сброс игры ---
 function resetGame() {
@@ -395,8 +556,10 @@ function resetGame() {
     aliveSnakes = CONFIG.SNAKE_COLORS.length;
     interpolationStep = 0;
     
-    // Сброс состояния управления
     isDragging = false;
+    trailSegments = [];
+    currentTrailSegment = null;
+    lastTrailUpdate = 0;
 
     snakes = [
         new Snake(CONFIG.SNAKE_COLORS[0], 5, 5, 'RIGHT'),
@@ -408,12 +571,11 @@ function resetGame() {
     food = null;
     generateFood();
 
-    // Красная змея по умолчанию управляется AI
     snakes[CONFIG.PLAYER_SNAKE_INDEX].playerControlled = false;
     updatePlayerStatus('красной (AI)');
     
     clearToasts();
-    clearConsole(); // Очищаем лог консоли при перезапуске
+    clearConsole();
     
     updateScoreBoard();
     updateLevelDisplay();
@@ -421,7 +583,7 @@ function resetGame() {
     addToConsole("Игра перезапущена");
 }
 
-// --- Обновление статуса игрока в инструкции ---
+// --- Обновление статуса игрока ---
 function updatePlayerStatus(status) {
     const playerHighlight = document.querySelector('.instructions .player-highlight');
     if (playerHighlight) {
@@ -429,7 +591,7 @@ function updatePlayerStatus(status) {
     }
 }
 
-// --- Функция для показа всплывающих уведомлений ---
+// --- Всплывающие уведомления ---
 function showToast(message, duration = 3000) {
     const toastContainer = document.getElementById('toast-container');
     if (!toastContainer) return;
@@ -445,7 +607,6 @@ function showToast(message, duration = 3000) {
     }, duration + 500);
 }
 
-// --- Функция для очистки всех уведомлений ---
 function clearToasts() {
     const toastContainer = document.getElementById('toast-container');
     if (toastContainer) {
@@ -508,6 +669,8 @@ function draw() {
 
     const cellWidth = canvas.width / gridWidth;
     const cellHeight = canvas.height / gridHeight;
+
+    drawTrail();
 
     if (food) {
         ctx.fillStyle = '#ff3333';
@@ -618,7 +781,7 @@ function draw() {
         });
     });
     
-    ctx.strokeStyle = '#ffffff';
+    ctx.strokeStyle = '#4cc9f0';
     ctx.lineWidth = 3;
     ctx.strokeRect(0, 0, canvas.width, canvas.height);
 }
@@ -647,16 +810,32 @@ function lightenColor(color, percent) {
 function update() {
     if (gameOver || !food) return;
 
+    updateTrail();
+
     snakes.forEach((snake, index) => {
         if (!snake || !snake.alive) return;
         
-        // --- Логика управления ---
-        // Если это красная змея и ей управляет игрок (isDragging)
         if (index === CONFIG.PLAYER_SNAKE_INDEX && snake.playerControlled) {
-            // Направление уже установлено в updatePlayerDirection через setDirectionTowards
-            // Никаких дополнительных действий не требуется здесь
+            let isFollowingTrail = false;
+            if (trailSegments.length > 0) {
+                const latestSegment = trailSegments[trailSegments.length - 1];
+                if (latestSegment && latestSegment.points.length > 1) {
+                    const points = latestSegment.points;
+                    const targetIndex = Math.max(0, points.length - 5);
+                    const targetPoint = points[targetIndex];
+                    
+                    if (targetPoint) {
+                        snake.steerTowardsPoint(targetPoint.x, targetPoint.y, canvas.width, canvas.height);
+                        isFollowingTrail = true;
+                    }
+                }
+            }
+            
+            if (!isFollowingTrail) {
+                snake.steerTowardsDesired();
+            }
+            
         } else {
-            // Для всех остальных змей (включая красную, если AI управляет)
             snake.autoMoveLogic(food);
         }
 
@@ -718,7 +897,7 @@ function gameLoop(currentTime) {
     draw();
 }
 
-// --- Функции для работы с консолью ---
+// --- Консоль ---
 function initConsole() {
     const modal = document.getElementById('console-modal');
     const btn = document.getElementById('console-toggle');
@@ -738,7 +917,6 @@ function initConsole() {
         }
     }
 
-    // Закрытие при клике вне окна
     window.onclick = function(event) {
         if (event.target === modal) {
             consoleOpen = false;
@@ -746,7 +924,6 @@ function initConsole() {
         }
     }
     
-    // Закрытие на клавишу Escape
     document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape' && consoleOpen) {
             consoleOpen = false;
@@ -763,16 +940,13 @@ function addToConsole(message) {
         const logEntry = document.createElement('p');
         logEntry.textContent = consoleLogs[consoleLogs.length - 1];
         consoleLogElement.appendChild(logEntry);
-        // Прокручиваем вниз
         consoleLogElement.scrollTop = consoleLogElement.scrollHeight;
     }
     
-    // Ограничиваем количество логов в памяти
     if (consoleLogs.length > 100) {
         consoleLogs.shift();
     }
     
-    // Также выводим в браузерную консоль
     console.log(message);
 }
 
