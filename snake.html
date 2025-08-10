@@ -20,6 +20,7 @@
                 <canvas id="game-canvas"></canvas>
                 <div class="top-right-panel">
                     <button id="console-toggle" class="panel-button">☰</button>
+                    <button id="score-toggle" class="panel-button">Σ</button>
                     <button id="restart-button" class="panel-button">↻</button>
                 </div>
                 <div id="level-info" class="level-info">Уровень: 1</div>
@@ -27,7 +28,7 @@
             </div>
         </div>
 
-        <div id="score-board" class="score-board">
+        <div id="score-board" class="score-board" style="display: none;">
             <!-- Счет будет обновляться JS -->
         </div>
         
@@ -37,8 +38,17 @@
                     <span class="console-title">Игровая Консоль</span>
                     <span id="console-close" class="console-close">&times;</span>
                 </div>
+                <div class="console-tabs">
+                    <button id="log-tab" class="console-tab active">Логи</button>
+                    <button id="stats-tab" class="console-tab">Статистика</button>
+                </div>
                 <div id="console-log" class="console-log">
                     <!-- Логи будут добавляться сюда -->
+                </div>
+                <div id="console-stats" class="console-stats" style="display: none;">
+                    <div id="stats-content" class="stats-content">
+                        <!-- Статистика будет добавляться сюда -->
+                    </div>
                 </div>
             </div>
         </div>

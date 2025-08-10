@@ -127,6 +127,10 @@ body {
     transform: scale(0.95);
 }
 
+#score-toggle {
+    font-size: 0.9rem;
+}
+
 /* --- Информация об уровне --- */
 .level-info {
     position: absolute;
@@ -263,6 +267,70 @@ body {
     justify-content: space-between;
     align-items: center;
 }
+
+.console-tabs {
+    display: flex;
+    background-color: #181825;
+    border-bottom: 1px solid #4cc9f0;
+}
+
+.console-tab {
+    flex: 1;
+    padding: 10px;
+    background: none;
+    border: none;
+    color: #cdd6f4;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.console-tab:hover {
+    background-color: rgba(76, 201, 240, 0.2);
+}
+
+.console-tab.active {
+    background-color: rgba(76, 201, 240, 0.3);
+    color: #4cc9f0;
+}
+
+.console-stats {
+    flex-grow: 1;
+    padding: 15px;
+    overflow-y: auto;
+    background-color: #181825;
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.stats-content {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px;
+    border-bottom: 1px dotted #4cc9f0;
+}
+
+.stat-name {
+    font-weight: bold;
+}
+
+.stat-value {
+    font-weight: bold;
+}
+
+.red-stat { color: #ff4d4d; }
+
+.blue-stat { color: #4d79ff; }
+
+.green-stat { color: #4dff4d; }
+
+.orange-stat { color: #ffad33; }
 
 .console-title {
     font-size: 1.2rem;

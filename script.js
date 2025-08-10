@@ -43,6 +43,12 @@ let currentTrailSegment = null;
 let consoleLogs = [];
 let consoleOpen = false;
 
+// --- Для статистики ---
+let victoryPoints = [0, 0, 0, 0];
+let gamesPlayed = 0;
+let autoRestartTimer = null;
+let countdownValue = 5;
+
 // --- Класс Змея ---
 class Snake {
     constructor(color, startX, startY, initialDirection) {
@@ -298,6 +304,11 @@ function initGame() {
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas);
 
+    // Инициализируем массив победных очков, если он пуст
+    if (victoryPoints.length === 0) {
+        victoryPoints = [0, 0, 0, 0];
+    }
+
     resetGame();
     
     const restartButton = document.getElementById('restart-button');
@@ -305,6 +316,18 @@ function initGame() {
         restartButton.addEventListener('click', (e) => {
             e.stopPropagation();
             resetGame();
+        });
+    }
+    
+    const scoreToggleButton = document.getElementById('score-toggle');
+    if (scoreToggleButton) {
+        // Инициализируем состояние кнопки
+        scoreToggleButton.style.backgroundColor = 'rgba(76, 201, 240, 0.15)';
+        scoreToggleButton.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
+        
+        scoreToggleButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleScoreBoard();
         });
     }
     
@@ -548,6 +571,12 @@ function drawTrail() {
 
 // --- Сброс игры ---
 function resetGame() {
+    // Очищаем таймер автоматического перезапуска, если он есть
+    if (autoRestartTimer) {
+        clearInterval(autoRestartTimer);
+        autoRestartTimer = null;
+    }
+    
     gameOver = false;
     scores = [0, 0, 0, 0];
     gameSpeed = CONFIG.INITIAL_SPEED;
@@ -575,10 +604,22 @@ function resetGame() {
     updatePlayerStatus('красной (AI)');
     
     clearToasts();
-    clearConsole();
+    // Не очищаем консоль полностью, чтобы сохранить статистику
     
     updateScoreBoard();
     updateLevelDisplay();
+    updateStatsDisplay();
+    
+    // Скрываем таблицу счета при перезапуске
+    const scoreBoard = document.getElementById('score-board');
+    const scoreToggleButton = document.getElementById('score-toggle');
+    if (scoreBoard) {
+        scoreBoard.style.display = 'none';
+    }
+    if (scoreToggleButton) {
+        scoreToggleButton.style.backgroundColor = 'rgba(76, 201, 240, 0.15)';
+        scoreToggleButton.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
+    }
 
     addToConsole("Игра перезапущена");
 }
@@ -607,6 +648,41 @@ function showToast(message, duration = 3000) {
     }, duration + 500);
 }
 
+// --- Автоматический перезапуск с обратным отсчетом ---
+function startAutoRestart() {
+    countdownValue = 3;
+    updateCountdownDisplay();
+    
+    autoRestartTimer = setInterval(() => {
+        countdownValue--;
+        updateCountdownDisplay();
+        
+        if (countdownValue <= 0) {
+            clearInterval(autoRestartTimer);
+            resetGame();
+        }
+    }, 1000);
+}
+
+function updateCountdownDisplay() {
+    const message = `Перезапуск через ${countdownValue} сек...`;
+    
+    // Удаляем предыдущий тост, если есть
+    const toastContainer = document.getElementById('toast-container');
+    if (toastContainer) {
+        const existingToast = toastContainer.querySelector('.toast');
+        if (existingToast) {
+            existingToast.remove();
+        }
+        
+        const toast = document.createElement('div');
+        toast.className = 'toast';
+        toast.textContent = `Игра окончена! ${message}`;
+        
+        toastContainer.appendChild(toast);
+    }
+}
+
 function clearToasts() {
     const toastContainer = document.getElementById('toast-container');
     if (toastContainer) {
@@ -618,14 +694,25 @@ function clearToasts() {
 function endGame() {
     gameOver = true;
     const winner = snakes.find(s => s && s.alive);
+    const winnerIndex = winner ? CONFIG.SNAKE_COLORS.indexOf(winner.color) : -1;
     const winnerName = winner ? 
         (winner.color === 'red' ? 'Красная (Вы)' : 
         winner.color === 'blue' ? 'Синяя' : 
         winner.color === 'green' ? 'Зеленая' : 'Оранжевая') : 'Никто';
     
+    // Начисляем победные очки
+    if (winnerIndex !== -1) {
+        victoryPoints[winnerIndex] += scores[winnerIndex] + currentLevel;
+    }
+    
+    gamesPlayed++;
+    
     const message = `Игра окончена! Победила змея ${winnerName}!`;
     showToast(message, 5000);
     addToConsole(message);
+    
+    // Запуск автоматического перезапуска с обратным отсчетом
+    startAutoRestart();
 }
 
 // --- Генерация еды ---
@@ -907,6 +994,7 @@ function initConsole() {
         btn.onclick = function() {
             consoleOpen = true;
             if (modal) modal.style.display = 'block';
+            updateStatsDisplay();
         }
     }
     
@@ -930,6 +1018,108 @@ function initConsole() {
             if (modal) modal.style.display = 'none';
         }
     });
+    
+    // Инициализация вкладок консоли
+    initConsoleTabs();
+}
+
+function initConsoleTabs() {
+    const logTab = document.getElementById('log-tab');
+    const statsTab = document.getElementById('stats-tab');
+    const consoleLog = document.getElementById('console-log');
+    const consoleStats = document.getElementById('console-stats');
+    
+    if (logTab && statsTab && consoleLog && consoleStats) {
+        logTab.addEventListener('click', function() {
+            logTab.classList.add('active');
+            statsTab.classList.remove('active');
+            consoleLog.style.display = 'block';
+            consoleStats.style.display = 'none';
+        });
+        
+        statsTab.addEventListener('click', function() {
+            statsTab.classList.add('active');
+            logTab.classList.remove('active');
+            consoleStats.style.display = 'block';
+            consoleLog.style.display = 'none';
+            updateStatsDisplay();
+        });
+    }
+}
+
+function updateStatsDisplay() {
+    const statsContent = document.getElementById('stats-content');
+    if (!statsContent) return;
+    
+    let statsHTML = '<h3>Статистика игр</h3>';
+    
+    // Общая статистика
+    statsHTML += `
+        <div class="stat-item">
+            <span class="stat-name">Всего сыграно игр:</span>
+            <span class="stat-value">${gamesPlayed}</span>
+        </div>
+    `;
+    
+    statsHTML += '<h4>Победы по змеям:</h4>';
+    
+    // Статистика по каждой змее, отсортированная по победам
+    const snakeStats = CONFIG.SNAKE_COLORS.map((color, index) => ({
+        color,
+        index,
+        points: victoryPoints[index]
+    }));
+    
+    snakeStats.sort((a, b) => b.points - a.points);
+    
+    snakeStats.forEach(snakeStat => {
+        const colorClass = `${snakeStat.color}-stat`;
+        const colorName = snakeStat.color === 'red' ? 'Красная' : 
+                          snakeStat.color === 'blue' ? 'Синяя' : 
+                          snakeStat.color === 'green' ? 'Зеленая' : 'Оранжевая';
+        
+        statsHTML += `
+            <div class="stat-item">
+                <span class="stat-name ${colorClass}">${colorName} змея:</span>
+                <span class="stat-value ${colorClass}">${snakeStat.points} очков</span>
+            </div>
+        `;
+    });
+    
+    statsHTML += '<h4>Текущая игра:</h4>';
+    
+    // Текущая игра
+    statsHTML += `
+        <div class="stat-item">
+            <span class="stat-name">Уровень:</span>
+            <span class="stat-value">${currentLevel}</span>
+        </div>
+    `;
+    
+    // Текущие результаты, отсортированные по счету
+    const currentScores = CONFIG.SNAKE_COLORS.map((color, index) => ({
+        color,
+        index,
+        score: scores[index]
+    }));
+    
+    currentScores.sort((a, b) => b.score - a.score);
+    
+    currentScores.forEach(scoreStat => {
+        const colorClass = `${scoreStat.color}-stat`;
+        const colorName = scoreStat.color === 'red' ? 'Красная' : 
+                          scoreStat.color === 'blue' ? 'Синяя' : 
+                          scoreStat.color === 'green' ? 'Зеленая' : 'Оранжевая';
+        
+        statsHTML += `
+            <div class="stat-item">
+                <span class="stat-name ${colorClass}">${colorName} змея:</span>
+                <span class="stat-value ${colorClass}">${scoreStat.score} еды</span>
+            </div>
+        `;
+    });
+    
+    statsContent.innerHTML = statsHTML;
 }
 
 function addToConsole(message) {
@@ -955,6 +1145,11 @@ function clearConsole() {
     const consoleLogElement = document.getElementById('console-log');
     if (consoleLogElement) {
         consoleLogElement.innerHTML = '';
+    }
+    
+    // Обновляем статистику в консоли
+    if (consoleOpen) {
+        updateStatsDisplay();
     }
 }
 
@@ -992,6 +1187,14 @@ function updateScoreBoard(animate = false) {
         
         scoreBoard.appendChild(scoreItem);
     });
+    
+    // Скрываем счет по умолчанию
+    scoreBoard.style.display = 'none';
+    
+    // Обновляем статистику в консоли
+    if (consoleOpen) {
+        updateStatsDisplay();
+    }
 }
 
 function updateLevelDisplay() {
@@ -1002,6 +1205,22 @@ function updateLevelDisplay() {
         setTimeout(() => {
             if (levelInfo) levelInfo.style.animation = 'pulse 2s infinite';
         }, 10);
+    }
+}
+
+function toggleScoreBoard() {
+    const scoreBoard = document.getElementById('score-board');
+    const scoreToggleButton = document.getElementById('score-toggle');
+    if (!scoreBoard || !scoreToggleButton) return;
+    
+    if (scoreBoard.style.display === 'none') {
+        scoreBoard.style.display = 'flex';
+        scoreToggleButton.style.backgroundColor = 'rgba(76, 201, 240, 0.3)';
+        scoreToggleButton.style.boxShadow = '0 2px 8px rgba(76, 201, 240, 0.4)';
+    } else {
+        scoreBoard.style.display = 'none';
+        scoreToggleButton.style.backgroundColor = 'rgba(76, 201, 240, 0.15)';
+        scoreToggleButton.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
     }
 }
 
